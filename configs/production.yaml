@@ -1,0 +1,16 @@
+# Environment: Production
+mode: LIVE_TRADING
+broker: Alpaca
+trading:
+  enable_options: true
+  enable_futures: true
+  enable_crypto: true
+risk:
+  max_portfolio_drawdown: 0.15
+  position_sizing: "risk_parity"
+orchestrator:
+  nodes: 3
+  ha_failover: true
+models:
+  use_rl_engine: true
+  concept_drift_retrain: true

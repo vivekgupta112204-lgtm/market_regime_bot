@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hmm-bot-service
+spec:
+  selector:
+    app: hmm-bot
+  ports:
+    - name: api
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+    - name: dashboard
+      protocol: TCP
+      port: 8501
+      targetPort: 8501
+  type: ClusterIP

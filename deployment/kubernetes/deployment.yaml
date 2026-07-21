@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hmm-trading-bot
+  labels:
+    app: hmm-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hmm-bot
+  template:
+    metadata:
+      labels:
+        app: hmm-bot
+    spec:
+      containers:
+      - name: hmm-bot
+        image: ghcr.io/yourusername/hmm_regime_bot:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        - containerPort: 8501
+        envFrom:
+        - secretRef:
+            name: hmm-bot-secrets
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: bot-data
+          mountPath: "/app/data"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: bot-data
+        persistentVolumeClaim:
+          claimName: hmm-bot-pvc

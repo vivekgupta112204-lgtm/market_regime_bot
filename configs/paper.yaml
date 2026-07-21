@@ -1,0 +1,16 @@
+# Environment: Paper Validation
+mode: PAPER_TRADING
+broker: Alpaca_Paper
+trading:
+  enable_options: false
+  enable_futures: false
+  enable_crypto: true
+risk:
+  max_portfolio_drawdown: 0.20
+  position_sizing: "equal_weight"
+orchestrator:
+  nodes: 1
+  ha_failover: false
+models:
+  use_rl_engine: true
+  concept_drift_retrain: false

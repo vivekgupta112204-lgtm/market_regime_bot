@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - BOT_MODE=PAPER_TRADING
+    env_file:
+      - .env
+    command: python -m api.main
+    networks:
+      - trading_net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  dashboard:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    command: python -m streamlit run dashboard/app.py --server.port 8501 --server.headless true
+    depends_on:
+      - api
+    networks:
+      - trading_net
+
+networks:
+  trading_net:
+    driver: bridge

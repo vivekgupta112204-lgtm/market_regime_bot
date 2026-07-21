@@ -1,0 +1,63 @@
+# ==============================================
+# Market Regime Bot — Configuration File
+# ==============================================
+# Edit this file to configure Phase 1 data collection.
+
+# Broker / Data Source
+# Supported: yahoo, binance, bybit, alpaca
+broker: yahoo
+
+# Trading instrument
+symbol: SPY
+
+# OHLCV timeframe
+# Supported: 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w
+timeframe: 1d
+
+# Date range for historical data (UTC)
+start_date: "2020-01-01"
+end_date: "2025-01-01"
+
+# Portfolio
+initial_capital: 100000.0
+
+# Storage paths (relative to project root)
+data_folder: data
+log_folder: logs
+
+# Cache behaviour
+use_cache: true
+cache_expiry_hours: 24
+
+# Download retry policy
+max_retries: 3
+retry_delay_seconds: 5
+
+# Validation thresholds
+max_missing_pct: 5.0          # Fail if >5 % of expected bars are missing
+max_duplicate_pct: 1.0        # Fail if >1 % of rows are duplicates
+
+# ===================================================
+# Phase 2 — Feature Engineering & HMM Training
+# ===================================================
+
+# Feature scaling method: standard, robust, minmax
+scaler_type: robust
+
+# Feature selection
+correlation_threshold: 0.95   # Drop features with |r| > threshold
+
+# HMM training
+hmm_min_states: 2
+hmm_max_states: 6
+hmm_covariance_type: full     # full, tied, diag, spherical
+hmm_n_iter: 200               # Max EM iterations per model
+hmm_n_init: 10                # Number of random restarts
+hmm_random_state: 42
+hmm_tolerance: 0.01           # EM convergence tolerance
+
+# Model persistence
+model_folder: saved_models
+
+# Visualisation output
+chart_folder: charts

@@ -1,0 +1,16 @@
+# Environment: Local Feature Development
+mode: DEVELOPMENT
+broker: Mock
+trading:
+  enable_options: false
+  enable_futures: false
+  enable_crypto: false
+risk:
+  max_portfolio_drawdown: 0.99
+  position_sizing: "naive"
+orchestrator:
+  nodes: 1
+  ha_failover: false
+models:
+  use_rl_engine: false
+  concept_drift_retrain: false
