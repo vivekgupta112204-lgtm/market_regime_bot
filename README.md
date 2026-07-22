@@ -1,78 +1,35 @@
-# HMM Enterprise Regime-Based Trading Platform
+# US Serverless Trading Bot (GitHub Actions Architecture)
 
-![CI/CD](https://github.com/yourusername/market_regime_bot/actions/workflows/ci.yml/badge.svg)
-![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+This repository contains a fully autonomous quantitative trading system configured to run **Serverless on GitHub Actions**. By utilizing GitHub's free runner minutes, we completely sidestep the cost of hosting a 24/7 cloud server.
 
-An institutional-grade, fully autonomous quantitative trading platform built on Python. The platform utilizes **Hidden Markov Models (HMM)** for market regime mathematical detection (Trend/Volatility), combined with **Reinforcement Learning (PPO)** and **FinBERT NLP Transformers** to allocate capital sequentially mimicking a real quant firm swarm architecture.
+## 🚀 Serverless CI/CD Architecture
 
-## 🚀 Key Features
+- **Stateless Execution:** The bot does not run in a continuous loop. Instead, GitHub Actions spins up a fresh Ubuntu container every 5 minutes.
+- **US Timezone Gatekeeper:** Because GitHub's scheduling runs strictly on UTC, we mapped a timezone-aware script (`market_time.py`) using Python's `zoneinfo` (`America/New_York`). The script automatically adjusts for US Daylight Saving Time (DST). If the market is closed, it forces the workflow to gracefully exit holding runner time minimal.
+- **Automated Fallbacks:** 
+    - Auto-retries `pip install` failures if caching breaks.
+    - If the trading engine crashes, an autonomous `curl` webhook shoots a Telegram message tracing the failure path.
+- **Auditable Log Artifacts:** At the end of every 5-minute cycle, the `run_logs.txt` execution output is zipped and attached securely to the GitHub Action run.
 
-*   **Mathematical Regime Detection**: Dynamic GaussianHMM decoding Bull/Bear/Sideways market states.
-*   **Swarm AI Ensemble**: Coordinated autonomous agents (Research, News, Portfolio, Risk, Execution).
-*   **Markowitz Risk Optimizations**: Scipy SLSQP boundary minimizations calculating continuous optimal Sharpe portfolios via dynamic Expected Returns & Covariance.
-*   **Robust Risk Engines**: Hard limits on Historical VaR, Expected Shortfall (CVaR), and continuous running maximum drawdowns.
-*   **Multi-Broker Adapters**: Production Alpaca API native integrations for high-frequency routing (TWAP, VWAP scaling based on ATR/Volume metrics).
-*   **Event-Driven Resilient Deployments**: Watchdog services, MLOps Auto-Retrainer sequences, and Streamlit asynchronous dashboard integrations.
+## 🛠 Required Secrets Configuration
 
-## 🏗 Architecture
+For the workflow to interact with real brokers without exposing credentials, you **Must** inject the following keys into your repository settings via `Settings > Secrets and variables > Actions > New repository secret`:
 
-```text
-market_regime_bot/
-├── ai/                  # PPO & LLM Strategy Ensembles and Multi-Agents
-├── analytics/           # Math libraries (VaR, Drawdowns, Sharpe)
-├── api/                 # FastAPI REST and WebSocket hooks
-├── automation/          # APScheduler and Cron automated runtimes
-├── backtesting/         # Walk-Forward simulated vector backtesting engine 
-├── broker/              # Alpaca, Binance, CCXT Multi-broker interfaces
-├── dashboard/           # Streamlit Live Monitor Front-End
-├── mlops/               # Model Registry, Retrainers, and Statistical Drift Detection
-└── optimization/        # Scipy Mean-Variance Institutional Capital Allocators
-```
+1. `ALPACA_API_KEY`
+2. `ALPACA_SECRET_KEY`
+3. `ALPHA_VANTAGE_KEY`
+4. `TELEGRAM_TOKEN` (For Crash Alerts)
+5. `TELEGRAM_CHAT_ID`
 
-## 🛠️ Installation
+## 🖥 Local Testing
 
+Verify the US strict-time module locally:
 ```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/market_regime_bot.git
-cd market_regime_bot
-
-# 2. Setup Virtual Environment
-make install
-
-# 3. Environment Variables
-cp .env.example .env
-# Edit .env with your Alpaca API Keys and Encryption Keys.
+python market_time.py
 ```
+*(Will print "Market Open" and return Exit 0, or "Market Closed" and return Exit 1)*
 
-## 🖥 Usage
-
-### Local Deployment
+Verify the serverless trace loop:
 ```bash
-make start
+python run_bot.py
 ```
-* Dashboard runs at `http://localhost:8501`
-* API runs at `http://localhost:8000`
-
-### Docker Production Deployment
-```bash
-make docker-build
-make docker-up
-```
-
-## 📈 Paper vs Live Trading
-The system natively guards LIVE endpoints. By default, booting initiates `PAPER_TRADING`. 
-To run with real money:
-```bash
-export BOT_MODE=PRODUCTION
-make start
-```
-
-## 🔒 Security
-All broker secrets are stored locally. Production setups use the `config/.secrets.enc` symmetric Fernet encryption logic to prevent disk leaks. **Never commit your `.env` file**.
-
-## 🤝 Contributing
-Please see `CONTRIBUTING.md` for guidelines. We enforce `black`, `isort`, and `flake8` for CI checks.
-
----
-*Disclaimer: This repository is highly experimental. The maintainers are not responsible for financial loss resulting from deploying these algorithms.*

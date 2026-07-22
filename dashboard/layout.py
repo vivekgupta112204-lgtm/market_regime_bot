@@ -19,6 +19,10 @@ def render_sidebar(status_data: dict, post_command):
     mode = status_data.get("mode", "PAPER_TRADING")
     st.sidebar.write(f"**Mode:** `{mode.replace('_', ' ').upper()}`")
     
+    # Import and add market status here
+    from dashboard.intraday_widgets import get_us_market_status
+    st.sidebar.write(f"{get_us_market_status()}")
+    
     st.sidebar.divider()
     render_control_panel(state, post_command)
 

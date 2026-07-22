@@ -1,43 +1,27 @@
-"""Subordinate Agent for Risk Management."""
+"""Subordinate Agent for Risk Management (Swing/Positional Trading)."""
 
 import numpy as np
 from typing import Dict, Any
 
 class RiskAgent:
-    """Evaluates institutional risk metrics: VaR, Portfolio Exposure, Drawdowns."""
+    """Evaluates trailing stops and limits for long-term holding."""
     
-    def __init__(self, max_drawdown_limit: float = 0.15, max_var_limit: float = 0.05, max_leverage: float = 2.0):
-        self.max_dd = max_drawdown_limit
-        self.max_var = max_var_limit
-        self.max_leverage = max_leverage
+    def __init__(self, trailing_stop_pct: float = 0.05, max_risk_per_trade: float = 0.02):
+        self.trailing_stop = trailing_stop_pct
+        self.max_trade_risk = max_risk_per_trade
 
-    def compute_var(self, returns: np.ndarray, confidence: float = 0.95) -> float:
-        """Historical Value at Risk."""
-        if len(returns) == 0: return 0.0
-        return float(np.percentile(returns, (1 - confidence) * 100))
-
-    def compute_cvar(self, returns: np.ndarray, confidence: float = 0.95) -> float:
-        """Conditional Value at Risk (Expected Shortfall)."""
-        var = self.compute_var(returns, confidence)
-        sub_var = returns[returns <= var]
-        return float(np.mean(sub_var)) if len(sub_var) > 0 else var
-
-    def check_exposure(self, requested_allocations: Dict[str, float], historical_returns: np.ndarray, current_drawdown: float) -> dict:
-        """Returns complex dictionary defining if the requested portfolio lies within risk limits."""
-        total_exposure = sum(abs(v) for v in requested_allocations.values())
-        
-        var_95 = self.compute_var(historical_returns)
-        cvar_95 = self.compute_cvar(historical_returns)
+    def check_exposure(self, requested_allocations: Dict[str, float], todays_pnl: float, num_trades_today: int, account_size: float) -> dict:
+        """Enforces Swing Positional Constraints (Does not force close at EOD)."""
         
         flags = []
-        if total_exposure > self.max_leverage: flags.append(f"Leverage {total_exposure} exceeds {self.max_leverage}")
-        if abs(var_95) > self.max_var: flags.append(f"VaR {abs(var_95)} exceeds {self.max_var}")
-        if current_drawdown > self.max_dd: flags.append(f"Drawdown {current_drawdown} exceeds {self.max_dd}")
+            
+        # Size constraints per trade
+        max_size = max(abs(v) for v in requested_allocations.values()) if requested_allocations else 0
+        if max_size > self.max_trade_risk * 10:
+            flags.append("Allocation size suspiciously high for swing risk limit.")
         
         return {
             "approved": len(flags) == 0,
-            "var_95": var_95,
-            "cvar_95": cvar_95,
-            "total_leverage": total_exposure,
+            "todays_pnl_pct": (todays_pnl / account_size) * 100 if account_size > 0 else 0,
             "violations": flags
         }

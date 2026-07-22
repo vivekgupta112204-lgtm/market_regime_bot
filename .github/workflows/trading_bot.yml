@@ -1,0 +1,81 @@
+name: US Trading Bot Cron
+
+on:
+  schedule:
+    # Triggers every 5 minutes from Monday to Friday (UTC Time)
+    # Because UTC doesn't respect US Holidays or DST cleanly, we rely on market_time.py to gatekeep.
+    - cron: '*/5 * * * 1-5'
+  workflow_dispatch: # Allows manual trigger from GitHub UI for testing
+
+jobs:
+  trade_execution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5 # Prevents hanging runners and saves minute usage
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip' # Leverages GitHub Actions caching to speed up requirement installs
+
+      - name: Install Requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        continue-on-error: false # If dependencies fail, retry mechanism (next step) or fail immediately
+
+      # Automatic retry logic for pip installation if internal network drops
+      - name: Retry Install Requirements (Fallback)
+        if: failure()
+        run: pip install -r requirements.txt
+
+      - name: Verify US Market Hours (Gatekeeper)
+        id: market_check
+        run: |
+          # Executes market_time.py
+          # If it exits with 1 (Market Closed), this step will fail safely using continue-on-error.
+          python market_time.py
+        continue-on-error: true
+
+      - name: Check Market Status
+        # If market_time.py failed (exit 1), exit the workflow cleanly without failing the whole GitHub Action run badge.
+        if: steps.market_check.outcome == 'failure'
+        run: |
+          echo "Market Closed. Stopping execution."
+          exit 0
+
+      - name: Execute HMM Trading Bot Cycle
+        if: steps.market_check.outcome == 'success'
+        env:
+          # Securely inject GitHub Secrets into the runtime environment
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPHA_VANTAGE_KEY: ${{ secrets.ALPHA_VANTAGE_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BOT_MODE: "PRODUCTION"
+        run: |
+          echo "Market Open. Initiating 5-minute trade scanning and execution."
+          python run_bot.py > run_logs.txt 2>&1
+
+      - name: Upload Trade Logs as Artifact
+        if: always() # Uploads logs regardless of whether the trade script crashed or succeeded
+        uses: actions/upload-artifact@v4
+        with:
+          name: trading-execution-logs
+          path: run_logs.txt
+          retention-days: 7
+
+      - name: Notify Telegram on Failure
+        if: failure() # Only triggers if the Execute HMM Trading Bot Cycle crashes
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d chat_id="${TELEGRAM_CHAT_ID}" \
+          -d text="🚨 CRITICAL ERROR: GitHub Actions Trading Bot Workflow failed. Check GitHub Logs immediately."
