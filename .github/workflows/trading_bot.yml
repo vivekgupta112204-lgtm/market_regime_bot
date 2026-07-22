@@ -2,9 +2,9 @@ name: US Trading Bot Cron
 
 on:
   schedule:
-    # Triggers every 5 minutes from Monday to Friday (UTC Time)
-    # Because UTC doesn't respect US Holidays or DST cleanly, we rely on market_time.py to gatekeep.
-    - cron: '*/5 * * * 1-5'
+    # Triggers every 15 minutes between 13:00 - 21:00 UTC (Capsulate US EST/EDT hours entirely)
+    # This prevents burning the 2000 free GitHub Action minutes while market is asleep!
+    - cron: '*/15 13-21 * * 1-5'
   workflow_dispatch: # Allows manual trigger from GitHub UI for testing
 
 jobs:
