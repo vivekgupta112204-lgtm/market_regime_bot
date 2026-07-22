@@ -7,12 +7,15 @@ from loguru import logger
 import numpy as np
 
 class USIntradayScanner:
-    """Scans and filters US Equities every morning."""
+    """Scans highly liquid US Mega-caps for momentum intraday opportunities."""
     
-    def __init__(self, symbols_list: list[str] = None):
+    def __init__(self, symbols_list: list[str] | None = None):
         if not symbols_list:
-            # Liquid Mega-Cap US Tech Stocks
-            self.symbols = ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "NFLX", "QQQ"]
+            # Expanded to 20 High-Volume companies
+            self.symbols = [
+                "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "NFLX", "QQQ",
+                "PLTR", "SOFI", "COIN", "INTC", "ARM", "BAC", "JPM", "DIS", "WMT", "SPY"
+            ]
         else:
             self.symbols = symbols_list
 
