@@ -10,7 +10,7 @@ on:
 jobs:
   trade_execution:
     runs-on: ubuntu-latest
-    timeout-minutes: 5 # Prevents hanging runners and saves minute usage
+    timeout-minutes: 15 # Gives enough time for PyTorch and Transformers to download without failing
 
     steps:
       - name: Checkout Repository
