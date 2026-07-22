@@ -17,13 +17,13 @@ class USIntradayScanner:
             self.symbols = symbols_list
 
     def scan_morning_opportunities(self) -> list[str]:
-        """Runs the morning scan for high momentum Swing Trading opportunities."""
-        logger.info("Initiating Pre-Market US Scan for Positional/Swing Opportunities...")
+        """Runs the morning scan for high momentum, high volume stocks above VWAP and EMA."""
+        logger.info("Initiating Pre-Market/Morning US Scan for Intraday Opportunities...")
         top_picks = []
         
         try:
-            # Downloading 1 Hour interval data for the last 1 Month
-            df = yf.download(self.symbols, period="1mo", interval="1h", group_by="ticker", progress=False)
+            # Downloading 5 minute data for the last 5 days
+            df = yf.download(self.symbols, period="5d", interval="5m", group_by="ticker", progress=False)
             
             for symbol in self.symbols:
                 try:

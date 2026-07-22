@@ -2,9 +2,9 @@ name: US Trading Bot Cron
 
 on:
   schedule:
-    # Triggers every 15 minutes between 13:00 - 21:00 UTC (Capsulate US EST/EDT hours entirely)
-    # This prevents burning the 2000 free GitHub Action minutes while market is asleep!
-    - cron: '*/15 13-21 * * 1-5'
+    # Intraday Trading requirement: Evaluate every 5 minutes during open market 
+    # (13:00 to 21:00 UTC captures full US open session dynamically)
+    - cron: '*/5 13-21 * * 1-5'
   workflow_dispatch: # Allows manual trigger from GitHub UI for testing
 
 jobs:
