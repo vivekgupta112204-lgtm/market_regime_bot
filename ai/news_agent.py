@@ -44,18 +44,38 @@ class NewsAgent:
                 logger.warning(f"Twitter Sync failed (falling back to NewsAPI): {tw_e}")
                 self.provider = "newsapi" # Graceful fallback
         
-        # Traditional NewsAPI Route
+        # Fallback to Alpaca's Free Partner News (Benzinga)
         if not self.api_key:
-            return ["Stock market rallies today.", "Tech stocks decline on inflation fears."]
-            
-        try:
-            if self.provider == "newsapi":
-                url = f"https://newsapi.org/v2/everything?q={query}&apiKey={self.api_key}"
-                res = requests.get(url, timeout=5).json()
-                if res.get("status") == "ok":
-                    headlines = [art["title"] for art in res.get("articles", [])[:10]]
-        except Exception as e:
-            logger.error(f"News fetch failed: {e}")
+            alpaca_key = os.getenv("ALPACA_API_KEY")
+            alpaca_sec = os.getenv("ALPACA_SECRET_KEY")
+            if alpaca_key and alpaca_sec:
+               try:
+                   from alpaca.data.historical.news import NewsClient
+                   from alpaca.data.requests import NewsRequest
+                   
+                   news_client = NewsClient(alpaca_key, alpaca_sec)
+                   req = NewsRequest(symbols=query if query.isupper() else "SPY", limit=5)
+                   news_resp = news_client.get_news(req)
+                   if news_resp and news_resp.news:
+                       headlines = [art.headline for art in news_resp.news]
+                       logger.info(f"Fetched Alpaca News for {query}.")
+                       return headlines
+               except Exception as alp_e:
+                   logger.warning(f"Alpaca News fallback failed: {alp_e}")
+                   
+        # Ultimate mock fallback if NO API keys exist in the environment
+        if not headlines:
+            try:
+                if self.api_key and self.provider == "newsapi":
+                    url = f"https://newsapi.org/v2/everything?q={query}&apiKey={self.api_key}"
+                    res = requests.get(url, timeout=5).json()
+                    if res.get("status") == "ok":
+                        headlines = [art["title"] for art in res.get("articles", [])[:10]]
+            except Exception as e:
+                logger.error(f"News fetch failed: {e}")
+                
+            if not headlines:
+                 return ["Stock market rallies today.", "Tech stocks decline on inflation fears."]
         return headlines
 
     def deduce_sentiment(self, raw_news: list[str]) -> dict:
