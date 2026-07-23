@@ -9,6 +9,9 @@ import json
 import warnings
 warnings.filterwarnings('ignore')
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import numpy as np
 import pandas as pd
 from loguru import logger

@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 #!/usr/bin/env python3
 """
 run_bot.py
@@ -6,6 +8,14 @@ Stateless Execution Script for GitHub Actions.
 This script performs ONE SINGLE scan and trading evaluation cycle, then securely exits.
 It is designed to be triggered every 5 minutes by the GitHub Actions Cron Scheduler.
 """
+
+import sys
+import argparse
+import warnings
+warnings.filterwarnings('ignore')
+
+from dotenv import load_dotenv
+load_dotenv()
 
 import os
 from loguru import logger

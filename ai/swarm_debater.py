@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 """Multi-Agent Swarm Intelligence for pre-trade debate and validation."""
 
 import os

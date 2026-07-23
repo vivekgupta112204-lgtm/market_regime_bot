@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 """High-Frequency Trading (HFT) Stateful WebSocket Execution Engine."""
 
 import os
