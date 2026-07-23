@@ -1,99 +1,111 @@
 ========================================================================================
-# INSTITUTIONAL AUTONOMOUS TRADING ENGINE (LEVEL-6) 
-# FINAL ARCHITECTURE, WORKING MECHANISM & SYSTEM LIMITATIONS (DETAILED)
+# ADVANCED INSTITUTIONAL AUTONOMOUS TRADING ENGINE (LEVEL-6) 
+# EXHAUSTIVE SYSTEM ARCHITECTURE, OPERATIONAL MECHANICS & REAL-WORLD LIMITATIONS
 ========================================================================================
 
-Ye document ek comprehensive guide hai jo aapke Algo-Trading system ki har layer (from A-Z) aur uski technical limitations ko strictly professional aur detailed manner me samjhayega. Ise presentation panel/examiner ko seedha hand-over (print) kiya ja sakta hai.
+Ye document ek Ati-Vistrut (Highly Detailed) technical manual hai jo Algorithm ke end-to-end framework ko ekdum depth me explain karega. Har step me maths kyu aur kaise kaam kar raha hai, AI kya soch raha hai, aur system duniya ke kin khataron se jujh raha hai, ye sab yahan covered hai.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 1: SYSTEM KI WORKING (TRADE KAISE HOTA HAI?)
+SECTION 1: EXHAUSTIVE SYSTEM WORKING (PIPELINE DECONSTRUCTED)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-System mein koi human input nahi lagta. Har ek trade se pehle bot data ko 6 alag-alag layers (Gateways) se filter karta hai. Koi bhi trade tabhi hoti hai jab vo lagatar 30+ strict mathematical aur AI validations cross kar le. 
+Ye Autonomous system bilkul ek "Multi-Department Hedge Fund" ki tarah functions karta hai, jisme alag-alag departments apas me collaborate karke 1 final button dabate hain.
 
-➤ STEP 1: QUANTITATIVE ALPHA SCANNER (12-Factor Filter)
-Har subah 9:30 AM par, bot 70 Mega-Cap US stocks aur Cryptos ka data fetch karta hai. Ye unhe 12 professional equations par test karta hai:
-1. EMA Crossover: Kya short-term average price, long-term average ke upar hai?
-2. VWAP: Kya price institutional average buyers ke upar hai?
-3. RVol (Relative Volume): Kya asadharan (abnormal) Buying volume aa rahi hai?
-4. RSI: Kya stock overbought ya oversold zone me hai?
-5. MACD: Kya naya bullish momentum ban raha hai?
-6. Bollinger Bands: Kya price range squeeze hokar explode hone wali hai?
-7. ATR Volatility: Kitna risk factor hai per share me?
-8. OBV Divergence: Kahin "Smart Money" chupke se share bech toh nahi rahi?
-9. Fibonacci: Kya share apne 61.8% Golden Ratio ke upar hai?
-10. ADX Strength: Kya market me strong trend hai ya sirf noise?
-11. Stochastic Oscillator: Short-term momentum check.
-12. Chaikin Money Flow (CMF): Cash andar aa raha hai (Accumulation) ya baahar (Distribution).
-OUTCOME: Jo share sabse zyada points lata hai, voh "Top 15 Leaderboard" me select hota hai.
+➤ STEP 1: QUANTITATIVE ALPHA GENERATION SCANNER (The Radar Department)
+Sabse pehle subah 9:30 AM EST (US Market Open) par bot "us_scanner.py" activate karta hai. Ye scanner apne database ke top 70 Mega-Cap (Highly Liquid) stocks jaise Apple, Nvidia, aur Tesla ko chunta hai. Fir un par 12 alag mathematical exams (Factors) apply hote hain:
 
+1. Trend Alignment (EMA 20 & 50): Price trend confirm karta hai. Agar price lagatar in dono moving averages ke neeche hai, toh bot ko lagega "ye toh doob raha hai", and usey reject kar dega.
+2. Value Benchmark (VWAP): Institutional Big-buyers hamesha Volume-Weighted Average Price (VWAP) check karte hain. Agar price VWAP ke lagatar upar maintain kar raha hai, matlab bade log isme heavily paisa daal rahe hain.
+3. Liquidity Surge (Relative Volume - RVol): Aam din me agar Reliance me 1 lakh share trade hote hain, aur aaj 3 Lakh ho rahay hain (3.0x), matlab koi andar ki khabar hai ya bada player ghusa hai.
+4. Momentum & Reversal (RSI): Bot dekhta hai ki RSI (Relative Strength Index) 50-70 ke "Sweet Zone" me hai ki nahi. Agar 75 se uper gaya (Overbought), toh log profit book karenge and price girega, isiliye reject!
+5. Acceleration (MACD Crossover): Ye trend ki raftaar naapta hai. 
+6. Volatility Squeeze (Bollinger Bands): Jab price shrink hota hai, toh bands squeeze hote hain. Iske baad ka breakout massive hota hai.
+7. Risk / Reward Scaling (ATR): Agar ATR 2$ hai, matlab stock ek minute me 2$ up-down hota hai. Scalping ke liye high ATR waale shares zyada profit dete hain.
+8. Hidden Manipulation (OBV Divergence): Ye Volume based Indicator hai. Kayi baar chart par price uper jata hai "khokhla (fake) jump", lekin backend pe asal volume (paisa) nikal raha hota hai. OBV Divergence ise turant pakad leta hai.
+9. Fibonacci Support (Golden Ratio): Agar share apni pichli rally se 61.8% girkar wapas jump le raha hai, matlab ek solid support test pass ho gaya hai (Buy on dips).
+10. Trend Force (ADX): Direction nahi, balki Trend ki "Taakat" batata hai. ADX > 25 matlab trend bahut tagda hai.
+11. Momentum Cycles (Stochastic): %K and %D line se overbought cycles predict karta hai.
+12. Institutional Buying (Chaikin Money Flow - CMF): Volume and price ko combine karke bata ta hai ki Distribution ya Accumulation chal raha hai.
 
-➤ STEP 2: MULTI-MODAL DEEP REINFORCEMENT LEARNING (THE AI BRAIN)
-Scanner se nikla share "LSTM (Long Short-Term Memory)" PPO Neural Network me jata hai.
-- Ye network sirf 1 variable nahi, ek "8-Dimensional Array" (Return, Vol, Spread, Regime, Sentiment, L2 Imbalance) ko process karta hai. 
-- LSTM hone ki wajah se AI ko purane chart patterns (W-shape, Breakouts) yaad rehte hain.
-- REWARD ENGINE: Bot sirf max profit ke liye train nahi hua hai, balki "Differential Sharpe Ratio" aur "Quadratic Drawdown Penalties" use karke Capital ko bachaana (Risk Management) seekh chuka hai.
+OUTCOME: Har share ki checking hone ke baad, jo top 15 highest scores leke leaderboard par aate hain, unhe next department ko send kiya jata hai.
 
 
-➤ STEP 3: INSTITUTIONAL DEFENSE SHIELDS (5-Layer Safety)
-Trade approved hone ke baad bhi direct buy nahi hota. Bot market me Khatra (Risk) check karta hai:
-1. FED Macro Calendar: Agar aaj rat ko USA me koi interest rate / CPI meeting hai, toh bot us din koi intraday trade nahi lega (FREEZE protocol).
-2. Dark Pool Whale Radar: Bot options chain dekhta hai. Agar aam Aadmi options (Call) khareed rha hai, par Billionaires (Whales) us share ka Put (Short) khareed rhe hain, toh trade VETO.
-3. VIX Fear Index: Agar market ka VIX index 25 se upar gya, toh bot apna trade_size automatically aadha (50%) kar dega. Aur VIX 30 ke upar gya toh poora system Shutdown (Risk Cut).
-4. Cross-Asset Correlation: Agar SPY (Stocks) aur TLT (Bonds) ek sath behave karne lagein, toh system samajhta hai ki Crash aane wala hai aur risk hata leta hai.
-5. Sector Concentration: Koi bhi 1 stock overall account capital ka 15% se zyada hold nahi ho sakta (Diversification lock).
+➤ STEP 2: HYBRID DEEP REINFORCEMENT LEARNING BRAIN (The Math Department)
+Ab in 15 filtered stocks ko Machine Learning ke LSTM (Long Short-Term Memory) Recurrent PPO (Proximal Policy Optimization) model ke andar bheja jata hai. 
+- Traditional AI sirf "Current Second" ka data dekhta (MLP). Lekin humara LSTM usko ek memory buffer deta hai, jisse wo series / pattern identify kar sake (e.g. W pattern or Head & Shoulders).
+- Bot ek 8-Dimensional vector banata hai: 
+  [ Return | Volatility | Spread | Current Position | Regime | Capital | L2 Order-Book | NLP Sentiment Score ]
+- Reward Function Engine: Humara AI is tarah trained NAHI hai ki usey bas paisa kamana hai. Iska naya 5-layer Reward system اسے samjhata hai:
+   * Rule A (Sharpe Ratio): Agar tune ₹500 lagatar safe kamaya (Good Score), rather than ek he din ₹50K kamake agle din loss (Bad Score).
+   * Rule B (Drawdown Penalty): Agar tune mera account -10% drop karwaya, toh tujhe bhaari negative points. Capital preservation is priority!
+   * Rule C (Kelly Sizing): 80% portfolio ek trade me daalne pe immediate penalty (No all-in).
+   * Rule D (Tilt Detector): Lagatar 3 trade haara, toh negative points, ruk jaa!
+   * Rule E (Overtrading): Bina vajah baar baar trade liya brokerage generate karne kelia toh negative points.
 
 
-➤ STEP 4: INTELLIGENCE AUGMENTATION (NLP + TFs)
-- News Sentiment: Bot Google Gemini ka use karke seedha internet se latest news headlines padhta hai. Agar headline me Negative Score > -0.50 hai, toh bot trade ko block kar dega.
-- Multi-Timeframe Confluence: Bot same share ko 5-minute, 1-hour, aur 1-Day chart teeno par match karta hai. Agar teeno Bullish honge, tabhi Full-Size trade hogi.
+➤ STEP 3: GEO-POLITICAL & QUANT RISK SHIELDS (The Defense Department)
+Maths ne kaha "BUY", but Defense bolega "Ruko!" 
+1. The Fed Check (Macro): Agar aaj CPI meeting hai ya US Bank governor aake speech de raha hai, toh market kisi bhi calculations ko follow nahi karega aur crash hoga. Defense bot pehle he VETO kar deta hai - No Trade Today.
+2. VIX Fear Index (Market Darr): VIX (Volatility Index) calculate hota hai live. 
+   - Agar VIX > 25 (Fear): Bot kehta hai, 'Darr ka mahaul hai', 5 share ki jagah 2 share lenge (Size reduce).
+   - Agar VIX > 30 (Crash Panic): Bot execution ko pura "KILL" (lockdown) karke saari open trades kaat deta hai.
+3. Dark Pool Flow Radar (Insider Monitoring): Options-chain scraping karke dekhta hai ki bade institutions "Put options (betting against stock)" toh nai buy kar rahe. Agar unusual selling mili, AI target reject hoga.
+4. Structural Correlation Breakdown: Normally SPY (Stocks) aur TLT (Safe bonds) opposite chalne chahiye. Agar dono gir rahey hain, matlab cash liquidation panic hai market mei. Turant exposure cut.
+5. Sector Concentration Limiter: Ek rule ki Tech stocks portfolio mein max 40% rahain. Isliye agr AAPL, NVDA he top list mein bachey hain aur concentration cross hone wala hai to reject.
 
 
-➤ STEP 5: LLM SWARM DEBATE COUNCIL (Faisla) 
-Target final hone par bot automatically 5 alag-alag AI Waqeel (Agents) banata hai aur aapas me trade par behas karwata hai:
-- The BULL (Aggressive trader - points batata hai support me)
-- The BEAR (Short seller - crash features spot karta hai)
-- RISK ANALYST (Risk check karke 1 se 10 ka score deta hai)
-- CONTRARIAN (Majority decision ke forcefully khilaaf bolta hai)
-- SUPREME JUDGE: Sabke argument taul kar, Confidence aur Risk Score matrix match kar ke output deta hai: [APPROVED] ya [VETO].
+➤ STEP 4: NLP INTELLIGENCE AUGMENTATION (The Analyst Department)
+Google Gemini AI Engine (LLM) ka API activate hota hai. Vo us specific share ki Live News Headlines padhega internet se aur sentiment analysis niklaega (-1 to +1). "Fraud Case registered against CEO" jaisi news usse turant -0.90 ka score degi aur trade technical setup sahi hony par bhi block. 
+Saath mei, Multi-Timeframe Check (MTF) hota hai - 5m, 1h aur 1-day charts par sab alignment check hoti hai taaki scalping ke liye long term cycle kaatam na hui ho.
 
 
-➤ STEP 6: SMART EXECUTION ENGINE & ORDER SLICING
-Trade finally broker (Alpaca) par Execute hoti hai with Hedge Fund techniques:
-- ATR Position Sizing: Dollar amount fix nahi hota. Volatility ke hisaab se share ki Right Qty calculate ki jaati hai (Max Risk 1%).
-- Smart Routing: Bot real time Spread dekhta hai. Spread tight ho toh Market Order, warna Aggressive Mid-Point Limit Order banakar lagata hai.
-- TWAP Iceberg Slicing: Agar 50 shares kharedne hain, toh bot usey (3 slices) me tod tod kar delay ke sath buy karega, taaki bade algorithms tracking na kar payein.
-- Bracket Exits: Order place hote hi automatically Take-Profit (+3%) aur Trailing Stop Loss (2%) server pe trigger hota hai.
+➤ STEP 5: MULTI-AGENT SWARM DEBATE (The Courtroom)
+Sabhi mathematical aur defensive layers ko cross kar chuka ek akela strong share ab "Swarm Intelligence" ke paas jayega. System apne dimag mein 5 alag 'Personas' (Fake Insaano ki personality) jagata hai aur unme Behas karwata hai!
+1. The Aggressive BULL: Karta hai extreme Buy points highlight with Confidence (%).
+2. The Experienced BEAR: Karta nikalta hai faults, aur counter karta hai with Confidence (%).
+3. Risk Analyst (CRO): Sirf downside dekhta hai. Creates a Risk-Score out of 10.
+4. The Contrarian: Market bias todna iska kaam, always anti-majority bolna hai.
+5. The SUPREME JUDGE: Sbka opinion padkhey, aur apna verdict sunata hai -> [APPROVED] / [VETO]. 
+*Hard Override: Agar Risk-score 8/10 cross krgya toh Judge bhi by-pass, trade Automatically cancelled!*
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 2: SYSTEM LIMITATIONS (REAL-WORLD KAMIYAN AND CHALLENGES)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Live trading is entirely different from Backtesting. Real market environment introduces several execution and hardware flaws that even Billion-dollar funds struggle with:
 
-[ 1 ] THE PYTHON SPEED BOTTLENECK (LANGUAGE FLAW)
-- PROBLEM: Python is the global standard for AI, but for execution, it suffers from the "Global Interpreter Lock (GIL)". This means threads block each other for milliseconds.
-- REALITY: High-Frequency Scalping (HFT) requires C++ or Rust hardware-level machine execution.
-- MITIGATION TRIED: We bypassed Python GIL partially using Numba LLVM Just-In-Time (`@njit(nogil=True)`) array compilations, but Python still incurs micro-delays vs C++.
-
-[ 2 ] BROKER "PFOF" SLIPPAGE (PAYMENT FOR ORDER FLOW)
-- PROBLEM: Platforms like Alpaca, Robinhood offer "Free Commissions" but secretly route retail orders to Market Makers (Citadel, Virtu) through PFOF. 
-- REALITY: Our ML is trained on precise OHLCV data. But in the real world, the actual Ask/Bid spreads widen aggressively via PFOF mid-men. Buying at $10.00 exact is impossible, it slips to $10.02. In tight scalping algorithms, this spread "slippage" kills overall profit margin ("Death by a thousand cuts").
-- SOLUTION REQUIRED: Migration to Direct Market Access (DMA) brokers like Interactive Brokers (IBKR Pro).
-
-[ 3 ] GITHUB ACTIONS & DEVOPS THROTTLING
-- PROBLEM: The bot uses GitHub automated cloud Actions for serverless workflows. 
-- REALITY: GitHub places a Hard-Limit of 6 Hours maximum runtime per workflow, immediately terminating the script upon passing. Additionally, it restricts cron-job intervals to minimum 5-minute ticks.
-- REALITY: Fast crypto data needs a 24/7 dedicated Ubuntu VPS (Amazon EC2 / Web Services), NOT ephemeral pipelines. 
-
-[ 4 ] SHORT-SELLING AND HARD-TO-BORROW (HTB) RISKS
-- PROBLEM: The AI can generate "BEARISH" signals to profit from a crashing market.
-- REALITY: Alpaca frequently rejects these short orders returning an "Asset Not Shortable" error. Brokers hold limited reserves of shares to lend to retail traders, making algorithmic Bear-Regime hopping heavily reliant on large margin-capital availability.
-
-[ 5 ] AI BLACK-SWAN HALLUCINATION (OUT OF DISTRIBUTION)
-- PROBLEM: The RL PPO and Gemini models are mathematical engines trained on Historical Datasets. 
-- REALITY: If a truly novel macroeconomic event occurs (e.g., A sudden Global Pandemic or instant flash crash never seen in structural data memory before), the model is pushed "Out-Of-Distribution". In this uncharted territory, Neural Networks do not say "I don't know"; they "Hallucinate" and may output high-confidence false signals, leading to rapid catastrophic drawdowns. 
-- MITIGATION TRIED: This is exactly why the 5-Agent Swarm + VIX Hard Lockdown Shields were engineered to instantly pull the plug on all AI trading autonomy if panic breaks traditional correlation limits.
+➤ STEP 6: SMART ATOMIC EXECUTION (The Sniper Department)
+Order execution directly Broker ko nai jata kiyunky Big-Banks Retailers ka order track karte hain! Execution Algorithms in 4 features ko deploy karta hai:
+1. Dynamic ATR Sizing: $1000 ko seedhe mat phek. Agar stock volatile hai, toh Qty automatically kam hogi, agar stable hai toh Qty increase. Formula = (1% Equity) / (ATR * 2) 
+2. Real-Time Spread Routing: Agar slippage/spread (broker ki chupkee fees) 0.05% se tight ha tab he Market order bhejo. Agar spread wide hai toh bot limit order price ko center mein (midpoint) khada kardega, taaky fees bach jayyein. 
+3. TWAP Iceberg Camouflage Slicing: Agar badi amount buy horahi hai toh Algorithm order ko 3 small slices me tod kar har 10-15 seconds gap me bhejega. Kisiy institutional tracker ko shakk bhi nahi hota k array pichy kon khara hai.
+4. Tri-Layer Bracket Architectures: Position khultey sath he, 1) Take Profit (+3%), 2) Hard Stop loss (-1.5%) aur 3) Trailing-Stop-Loss deploy jate hen local server pr. Yaani sookha profit b kabhi minus tak jany tak wait nai karemge, trail hokr block hojae ga! 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PREPARED BY: QUANTITATIVE ENGINEERING FRAMEWORK
-[READY FOR PRODUCTION REVIEW & PANEL DEFENSE]
+SECTION 2: EXTREME REAL-WORLD LIMITATIONS (THE BILLION-DOLLAR BARRIERS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Jitni bhi back-tests aur theoretical logic proof lagti hain, Real-Life Stock market unhe ek hi jhatke mein barbaad kar sakti hai. Kisi bhi Hedge fund interview ya pitch mei un-khatro ka iqrar krna lazmi hai:
+
+[ L-1 ] THE PYTHON GIL ARCHITECTURE FLAW (LATENCY LAG)
+- VASTHVIKTA (REALITY): Python language me "Global Interpreter Lock (GIL)" hota hai. Machine learning models (Pytorch) likhna isme smooth hai, par high frequency array multi-threading par CPU ek dusre task ke beech atak (block) jata hai, nanosecond lag ajatay.
+- RESULT: Jab 0.01 seconds matter kartay hen HFT me, to Python wahe beat khaa jata hai C++ aur FPGA hardware logic (Rust) se!
+- MITIGATION: Humney Numpy aur Numba-Jit use karke `@njit(nogil=True)` python engine by pass krwayaa but native C++ integration ab b required he Fund scale-up kelia.
+
+[ L-2 ] MARKET-MAKER PFOF & DIRECT MARKET ACCESS (SLIPPAGE THIEVERY)
+- VASTHVIKTA (REALITY): Retail Brokers like Alpaca or Robinhood aapse $0 fees claim karte hain - par asal main vo aapka PFOF (Payment for order Flow) ka data Market-Makers (Citadel / JaneStreet) ko bechtey hen! 
+- RESULT: Jab bot signal nikalta hy buy ka at $150.00, Citadel microseconds mei front-run karkey $150.03 par apko thhamata hai. $0.03 x 1000 shares in 300 trades = Aap poora munafa (profits) sirf iss 3 cent k commission loop hole mein de daalty. Algo me win-rate sahi rahga, par PNL negative.
+- MITIGATION: System ko Interactive Brokers (IBKR) k "direct Market access (DMA)" pro server se rout krwana zrori hai future update kelia.
+
+[ L-3 ] HARD-TO-BORROW (HTB) & THE SHORT-SELLING MIRAGE
+- VASTHVIKTA: Reinforcement Learning agent kehta he "Market is crashing, Short-Sell -0.09 TSLA".
+- RESULT: Par Broker execution pe Error dega - "Asset is Hard to Borrow". Shorting require borrowing of actual stocks from brokers reserves, aam retail account ke pas priority margins hit na hone per ye reserves unavailable hoty hen. The model learns fake rewards back-testing mei q k vahan easily short execute ho jata. 
+- MITIGATION: Live-market per Inverse-ETF routing. E.g (Bear = Buy SQQQ instead of shorting QQQ). Ya Capital account expand karna.
+
+[ L-4 ] CI/CD CLOUD BOTTLENECKS (THE GITHUB ACTIONS DEATH THAW)
+- VASTHVIKTA: Cloud pipeline (Github Actions) pe bot ko automatic continuous chalaya hua hai.
+- RESULT: Lekin free pipeline ek ephemeral server per chalti hen. "6-Hour-Kill-Rule" lagti he, 6 hour hotey e server restart/crash aur memory wipe. Dusra, Cron Job timer minimum 5-minute delays pr fire karta aur Heavy priority queues k waja se best-effort (lagging) trigger generate karta hai.
+- MITIGATION: 24/7 Tick arrays ko sirf EC2/VPS (Amazon/Linode) per standalone deployment kr k HFT chalani pregi, Github Actions scale up pr fail hy!
+
+[ L-5 ] BLACK-SWAN DATA OUT-OF-DISTRIBUTION (O.O.D) HALLUCINATION ERROR
+- VASTHVIKTA: AI (Gemini and LSTM) mathematical correlation par act krtey hain jo puraney saalo mein already feed kiya gaya ho (History Pattern).
+- RESULT: Agar abhe market mein kisi 3rd country par atomic strike / nayi world crisis pandemic aa jati hy.. vo data history mein neural-network ki distribution ke bahir ha. Neural-Net ye nahi kaheyga "Mujhey nai pata!". Voh over-confident hoker Ghalat decisions generate karega (AI Hallucination Bias) causing portfolio devastation.
+- MITIGATION: Yahi wo waakt hai k jahan humara Module-3 (VIX 35+ Lockdown protocol) override karke saari trading Freeze kar deta he and PPO/Generative AI dono ko manual-kill switch de dety bachanay kelia!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PREPARED BY: ADVANCED QUANTITATIVE RESEARCH PLATFORM 
+SYSTEM STATUS: ARCHITECTURE REVIEW COMPLETED. 
 ========================================================================================
