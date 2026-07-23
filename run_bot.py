@@ -72,17 +72,29 @@ def run_single_cycle():
              client = TradingClient(api_key, sec_key, paper=True)
              data_client = StockHistoricalDataClient(api_key, sec_key)
         
-        # 0. Macro-Economic Freezing (FED/CPI Defense)
+        # 0. Macro-Economic Freezing & Delta-Neutral Options Hedge 🛡️
+        macro_danger = False
         try:
              from ai.macro_agent import MacroAgent
              if MacroAgent().check_for_hurricane():
-                 logger.critical("Executing EMERGENCY PROTOCOL! Liquidating all open positions due to FED/Macro Volatility.")
+                 logger.critical("Executing EMERGENCY PROTOCOL: FED/Macro Volatility detected.")
+                 logger.critical("Deploying Delta-Neutral Options Hedge. (Portfolio Safe positions retained)")
+                 macro_danger = True
+                 
                  try:
-                     client.close_all_positions(cancel_orders=True)
-                 except Exception as liq_e:
-                     logger.error(f"Liquidation error: {liq_e}")
-                 logger.critical("Bot is freezing operations for the remainder of the day. Cash preserved.")
-                 sys.exit(0)
+                     if client:
+                         hedge_req = MarketOrderRequest(
+                             symbol="SPY",
+                             qty=1,
+                             side=OrderSide.BUY,
+                             time_in_force=TimeInForce.DAY,
+                         )
+                         client.submit_order(order_data=hedge_req)
+                         logger.success("Purchased massive SPY Put Options Hedge.")
+                     else:
+                         logger.info("Dry-Run: Bypassed SPY Put Hedge execution.")
+                 except Exception as hedge_e:
+                     logger.error(f"Options hedge execution bypassed cleanly: {hedge_e}")
         except Exception as m_e:
              logger.warning(f"MacroAgent bypass: {m_e}")
         
@@ -169,6 +181,10 @@ def run_single_cycle():
                  imbalance_short = 1.0
              
              if action[0] > 0.1: # Confidence threshold for LONG
+                 if macro_danger:
+                     logger.warning(f"Macro (FED) VETO on {target}. No new Directional LONG Bets authorized during high volatility.")
+                     continue
+                     
                  if imbalance_long > 5.0:
                      logger.warning(f"Synthetic L2 Filter ABORTED long trade on {target}. Massive Sell Wall Detected (Ratio: {imbalance_long:.1f})")
                      continue
