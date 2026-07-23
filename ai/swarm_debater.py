@@ -4,17 +4,17 @@ load_dotenv()
 
 import os
 from loguru import logger
-import openai
+from google import genai
 
 class SwarmDebateEngine:
     """Manages the Bear, Bull, and Judge generative personas."""
     
     def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.api_key = os.getenv("GEMINI_API_KEY")
         if not self.api_key:
-             logger.critical("Swarm Engine failure: OPENAI_API_KEY not found in environment.")
-             raise ValueError("OPENAI_API_KEY is required for the LLM Debate Engine.")
-        openai.api_key = self.api_key
+             logger.critical("Swarm Engine failure: GEMINI_API_KEY not found in environment.")
+             raise ValueError("GEMINI_API_KEY is required for the LLM Debate Engine.")
+        self.client = genai.Client(api_key=self.api_key)
         
     def conduct_debate(self, target: str, ppo_signal: str) -> str:
         """
@@ -45,15 +45,13 @@ class SwarmDebateEngine:
              return "[VETO]"
 
     def _query_llm(self, prompt: str) -> str:
-        """Helper to fetch completions from OpenAI strictly for production."""
+        """Helper to fetch completions from Gemini strictly for production."""
         try:
-             response = openai.ChatCompletion.create(
-                 model="gpt-4o-mini",
-                 messages=[{"role": "user", "content": prompt}],
-                 max_tokens=60,
-                 temperature=0.7
+             response = self.client.models.generate_content(
+                 model='gemini-2.5-flash',
+                 contents=prompt,
              )
-             return response.choices[0].message.content.strip().replace('\n', '')
+             return response.text.strip().replace('\n', '')
         except Exception as e:
              logger.error(f"LLM API Call Failed: {e}")
              raise e
