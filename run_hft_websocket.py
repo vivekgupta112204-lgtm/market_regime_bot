@@ -24,12 +24,11 @@ class UltraLowLatencyHFT:
         self.tick_window = []
         
         if not API_KEY or not SEC_KEY:
-            logger.warning("Alpaca API keys missing! HFT Engine running in Live Mock (Presentation) Mode.")
-            self.client = None
-            self.stream = None
-        else:
-             self.client = TradingClient(API_KEY, SEC_KEY, paper=True)
-             self.stream = StockDataStream(API_KEY, SEC_KEY)
+            logger.critical("Alpaca API keys missing! HFT Engine requires valid production connection.")
+            raise ValueError("ALPACA_API_KEY and ALPACA_SECRET_KEY must be set in environment.")
+            
+        self.client = TradingClient(API_KEY, SEC_KEY, paper=True)
+        self.stream = StockDataStream(API_KEY, SEC_KEY)
 
     async def _trade_handler(self, data):
         """Asynchronous callback fired every sub-second on a new tick/trade."""
@@ -63,23 +62,15 @@ class UltraLowLatencyHFT:
                  side=OrderSide.BUY if direction == "BUY" else OrderSide.SELL,
                  time_in_force=TimeInForce.DAY
              )
-             if self.client:
-                 self.client.submit_order(order_data=order)
-                 logger.success(f"HFT Scalp SUCCESS: {direction} 10 shares of {self.symbol}")
-             else:
-                 logger.success(f"Dry-Run [PRESENTATION MODE]: HFT Scalp SUCCESS -> {direction} 10 shares of {self.symbol}")
+             self.client.submit_order(order_data=order)
+             logger.success(f"HFT Scalp SUCCESS: {direction} 10 shares of {self.symbol}")
         except Exception as e:
              logger.error(f"HFT Execution failed: {e}")
 
     def run_engine(self):
         """Connects and maintains the persistent WebSocket pipeline."""
-        logger.info(f"🚀 Booting HFT WebSocket Engine targeting: {self.symbol}")
+        logger.info(f"dYs? Booting HFT WebSocket Engine targeting: {self.symbol}")
         
-        if not self.stream:
-             logger.warning("Dry-Run Fallback: Streaming simulated tick data for Presentation...")
-             self._simulate_presentation_ticks()
-             return
-
         try:
              self.stream.subscribe_trades(self._trade_handler, self.symbol)
              logger.info(f"Subscribed to Layer-2 Tick Data for {self.symbol}. Waiting for flow...")
@@ -90,24 +81,6 @@ class UltraLowLatencyHFT:
         except Exception as e:
              logger.error(f"WebSocket unhandled crash: {e}")
 
-    def _simulate_presentation_ticks(self):
-         """Generates mock high-frequency packets matching Alpaca WSS standard to showcase the capability offline."""
-         import time
-         import random
-         
-         class MockTick:
-             def __init__(self, p, s):
-                 self.price = p
-                 self.size = s 
-                 
-         base_price = 450.00
-         logger.info("Injecting syntheic WSS Layer-2 Packets...")
-         for i in range(15):
-              time.sleep(0.05) # 50 milliseconds simulation
-              base_price += random.uniform(-0.01, 0.03) # Upward bias to trigger LONG
-              mock_data = MockTick(base_price, 100)
-              asyncio.run(self._trade_handler(mock_data))
-              
 if __name__ == "__main__":
      engine = UltraLowLatencyHFT("SPY")
      engine.run_engine()

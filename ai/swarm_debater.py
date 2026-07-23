@@ -2,13 +2,17 @@
 
 import os
 from loguru import logger
-import random
+import openai
 
 class SwarmDebateEngine:
     """Manages the Bear, Bull, and Judge generative personas."""
     
     def __init__(self):
         self.api_key = os.getenv("OPENAI_API_KEY")
+        if not self.api_key:
+             logger.critical("Swarm Engine failure: OPENAI_API_KEY not found in environment.")
+             raise ValueError("OPENAI_API_KEY is required for the LLM Debate Engine.")
+        openai.api_key = self.api_key
         
     def conduct_debate(self, target: str, ppo_signal: str) -> str:
         """
@@ -17,36 +21,37 @@ class SwarmDebateEngine:
         """
         logger.info(f"⚖️ SWARM ACTIVATED: Meeting Room opened to debate PPO Signal: {ppo_signal} on {target}")
         
-        # In a production environment with an API Key, this hits OpenAI/Anthropic.
-        # Since this is optimized for local/presentation runs without exposing keys:
-        return self._simulate_mock_debate(target, ppo_signal)
-
-    def _simulate_mock_debate(self, target: str, ppo_signal: str) -> str:
-        """Generates an incredibly realistic simulated LLM debate for stage presentations."""
+        # 1. Bull Argument
+        bull_prompt = f"You are a hyper-bullish hedge fund manager. Give exactly 1 short sentence why I must go {ppo_signal} on {target} right now."
+        bull_reply = self._query_llm(bull_prompt)
+        logger.info(f"🗣️ [AGENT BULL]: '{bull_reply}'")
         
-        bull_args = [
-            f"The macroeconomic structure for {target} shows absolute resilience. Short interest is squeezing.",
-            f"Volume flows indicate massive institutional accumulation. {target} will rip past resistance.",
-            f"Implied volatility suggests a 2 standard deviation move is violently underpriced here."
-        ]
+        # 2. Bear Argument
+        bear_prompt = f"You are a hyper-bearish short seller. Give exactly 1 short sentence why going {ppo_signal} on {target} is a guaranteed disaster."
+        bear_reply = self._query_llm(bear_prompt)
+        logger.info(f"🗣️ [AGENT BEAR]: '{bear_reply}'")
         
-        bear_args = [
-            f"RSI divergence on {target} is glaring. Retail is trapped at the top.",
-            f"Treasury yields are applying immense pressure; {target}'s valuation is mathematically unsustainable.",
-            f"Looking at the L2 order book, there is a giant dark-pool sell wall at the current tick."
-        ]
+        # 3. Judge Argument
+        judge_prompt = f"You are the quantitative judge. The math model suggests {ppo_signal} on {target}. Bull argues: '{bull_reply}'. Bear argues: '{bear_reply}'. You must output ONLY the word [APPROVED] or [VETO] depending on which argument is fundamentally safer to protect capital."
+        judge_reply = self._query_llm(judge_prompt)
         
-        bull_quote = random.choice(bull_args)
-        bear_quote = random.choice(bear_args)
-        
-        logger.info(f"🗣️ [AGENT BULL]: '{bull_quote}'")
-        logger.info(f"🗣️ [AGENT BEAR]: '{bear_quote}'")
-        
-        # The Judge evaluates the PPO strength vs the debate
-        # 80% chance to approve to allow trades to flow, 20% chance to veto stringently.
-        if random.random() > 0.2:
-            logger.success(f"👨‍⚖️ [AGENT JUDGE]: After reviewing PPO mathematics and Swarm qualitative data, I lock this trade. [APPROVED]")
-            return "[APPROVED]"
+        if "[APPROVED]" in judge_reply.upper():
+             logger.success(f"👨‍⚖️ [AGENT JUDGE]: After reviewing PPO mathematics and Swarm qualitative data, I lock this trade. [APPROVED]")
+             return "[APPROVED]"
         else:
-            logger.error(f"👨‍⚖️ [AGENT JUDGE]: The downside qualitative risk heavily outweighs the quantitative momentum. I am blocking execution. [VETO]")
-            return "[VETO]"
+             logger.error(f"👨‍⚖️ [AGENT JUDGE]: The downside qualitative risk heavily outweighs the quantitative momentum. I am blocking execution. [VETO]")
+             return "[VETO]"
+
+    def _query_llm(self, prompt: str) -> str:
+        """Helper to fetch completions from OpenAI strictly for production."""
+        try:
+             response = openai.ChatCompletion.create(
+                 model="gpt-4o-mini",
+                 messages=[{"role": "user", "content": prompt}],
+                 max_tokens=60,
+                 temperature=0.7
+             )
+             return response.choices[0].message.content.strip().replace('\n', '')
+        except Exception as e:
+             logger.error(f"LLM API Call Failed: {e}")
+             raise e

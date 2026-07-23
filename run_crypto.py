@@ -51,12 +51,12 @@ def run_crypto_cycle():
     sec_key = os.getenv('ALPACA_SECRET_KEY')
     
     if not api_key or not sec_key:
-        logger.warning("Alpaca API keys missing! Operating in Dry-Run Prediction mode.")
-        client = None
-    else:
-        client = TradingClient(api_key, sec_key, paper=True)
+        logger.critical("Alpaca API keys missing! Cannot boot pipeline.")
+        raise ValueError("ALPACA_API_KEY and ALPACA_SECRET_KEY required.")
+         
+    client = TradingClient(api_key, sec_key, paper=True)
         
-         # 4. Execute ML predictions
+    # 4. Execute ML predictions
     for target in crypto_targets:
          logger.info(f"Scanning 24/7 Momentum Vector for {target}...")
          
@@ -86,29 +86,27 @@ def run_crypto_cycle():
              if action[0] > 0.1: # Confidence threshold for LONG
                  logger.info(f"RL Agent Confirmed LONG action ({action[0]:.2f}) for {target}")
                  
-                 if client:
-                     order_req = MarketOrderRequest(
-                         symbol=target,
-                         notional=TRADE_NOTIONAL_USD,  # <-- Crucial: Fractional $ ordering
-                         side=OrderSide.BUY,
-                         time_in_force=TimeInForce.GTC
-                     )
-                     client.submit_order(order_data=order_req)
-                     logger.success(f"Bought ${TRADE_NOTIONAL_USD} fractional {target}.")
+                 order_req = MarketOrderRequest(
+                     symbol=target,
+                     notional=TRADE_NOTIONAL_USD,  # <-- Crucial: Fractional $ ordering
+                     side=OrderSide.BUY,
+                     time_in_force=TimeInForce.GTC
+                 )
+                 client.submit_order(order_data=order_req)
+                 logger.success(f"Bought ${TRADE_NOTIONAL_USD} fractional {target}.")
                      
              elif action[0] < -0.1: # Confidence threshold for SHORT (Bear Signal)
                  logger.warning(f"RL Agent Confirmed SHORT action ({-action[0]:.2f}) for {target}")
                  
-                 if client:
-                     # Alpaca Crypto Shorting (Requires margin/specific approval, but request structure is identical)
-                     order_req = MarketOrderRequest(
-                         symbol=target,
-                         notional=TRADE_NOTIONAL_USD, 
-                         side=OrderSide.SELL,
-                         time_in_force=TimeInForce.GTC
-                     )
-                     client.submit_order(order_data=order_req)
-                     logger.success(f"Shorted ${TRADE_NOTIONAL_USD} fractional {target}.")
+                 # Alpaca Crypto Shorting (Requires margin/specific approval)
+                 order_req = MarketOrderRequest(
+                     symbol=target,
+                     notional=TRADE_NOTIONAL_USD, 
+                     side=OrderSide.SELL,
+                     time_in_force=TimeInForce.GTC
+                 )
+                 client.submit_order(order_data=order_req)
+                 logger.success(f"Shorted ${TRADE_NOTIONAL_USD} fractional {target}.")
                      
              else:
                  logger.info(f"RL Agent recommends HOLD/WAIT for {target}.")

@@ -65,12 +65,11 @@ def run_single_cycle():
         sec_key = os.getenv('ALPACA_SECRET_KEY')
         
         if not api_key or not sec_key:
-             logger.warning("Alpaca API keys missing! Operating in Dry-Run Prediction mode for Presentation.")
-             client = None
-             data_client = None
-        else:
-             client = TradingClient(api_key, sec_key, paper=True)
-             data_client = StockHistoricalDataClient(api_key, sec_key)
+             logger.critical("Alpaca API keys missing! Cannot boot pipeline.")
+             raise ValueError("ALPACA_API_KEY and ALPACA_SECRET_KEY required.")
+         
+        client = TradingClient(api_key, sec_key, paper=True)
+        data_client = StockHistoricalDataClient(api_key, sec_key)
         
         # 0. Macro-Economic Freezing & Delta-Neutral Options Hedge 🛡️
         macro_danger = False
@@ -82,17 +81,14 @@ def run_single_cycle():
                  macro_danger = True
                  
                  try:
-                     if client:
-                         hedge_req = MarketOrderRequest(
-                             symbol="SPY",
-                             qty=1,
-                             side=OrderSide.BUY,
-                             time_in_force=TimeInForce.DAY,
-                         )
-                         client.submit_order(order_data=hedge_req)
-                         logger.success("Purchased massive SPY Put Options Hedge.")
-                     else:
-                         logger.info("Dry-Run: Bypassed SPY Put Hedge execution.")
+                     hedge_req = MarketOrderRequest(
+                         symbol="SPY",
+                         qty=1,
+                         side=OrderSide.BUY,
+                         time_in_force=TimeInForce.DAY,
+                     )
+                     client.submit_order(order_data=hedge_req)
+                     logger.success("Purchased massive SPY Put Options Hedge.")
                  except Exception as hedge_e:
                      logger.error(f"Options hedge execution bypassed cleanly: {hedge_e}")
         except Exception as m_e:
@@ -212,22 +208,19 @@ def run_single_cycle():
                          side=OrderSide.BUY,
                          time_in_force=TimeInForce.DAY
                      )
-                     if client:
-                         client.submit_order(order_data=order_req)
-                         logger.success(f"Successfully placed order for {target} guided by RL.")
-                         
-                         # Submitting server-side Trailing Stop Loss to lock profits
-                         stop_req = TrailingStopOrderRequest(
-                             symbol=target,
-                             qty=5,
-                             side=OrderSide.SELL,
-                             time_in_force=TimeInForce.GTC,
-                             trail_percent=2.0
-                         )
-                         client.submit_order(order_data=stop_req)
-                         logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for {target}.")
-                     else:
-                         logger.info(f"Dry-Run: Bypassed HIGH-CONFIDENCE LONG entry + Trailing Stop on {target}.")
+                     client.submit_order(order_data=order_req)
+                     logger.success(f"Successfully placed order for {target} guided by RL.")
+                     
+                     # Submitting server-side Trailing Stop Loss to lock profits
+                     stop_req = TrailingStopOrderRequest(
+                         symbol=target,
+                         qty=5,
+                         side=OrderSide.SELL,
+                         time_in_force=TimeInForce.GTC,
+                         trail_percent=2.0
+                     )
+                     client.submit_order(order_data=stop_req)
+                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for {target}.")
                  except Exception as alp_e:
                      logger.error(f"Failed to place live order: {alp_e}")
                      
@@ -259,22 +252,19 @@ def run_single_cycle():
                          side=OrderSide.SELL,
                          time_in_force=TimeInForce.DAY
                      )
-                     if client:
-                         client.submit_order(order_data=order_req)
-                         logger.success(f"Successfully SHORTED {target} to profit from immediate downside.")
-                         
-                         # Submitting server-side Trailing Stop on the BUY side for Shorts
-                         stop_req = TrailingStopOrderRequest(
-                             symbol=target,
-                             qty=5,
-                             side=OrderSide.BUY,
-                             time_in_force=TimeInForce.GTC,
-                             trail_percent=2.0
-                         )
-                         client.submit_order(order_data=stop_req)
-                         logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for SHORT {target}.")
-                     else:
-                         logger.info(f"Dry-Run: Bypassed HIGH-CONFIDENCE SHORT entry + Trailing Stop on {target}.")
+                     client.submit_order(order_data=order_req)
+                     logger.success(f"Successfully SHORTED {target} to profit from immediate downside.")
+                     
+                     # Submitting server-side Trailing Stop on the BUY side for Shorts
+                     stop_req = TrailingStopOrderRequest(
+                         symbol=target,
+                         qty=5,
+                         side=OrderSide.BUY,
+                         time_in_force=TimeInForce.GTC,
+                         trail_percent=2.0
+                     )
+                     client.submit_order(order_data=stop_req)
+                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for SHORT {target}.")
                  except Exception as alp_e:
                      # Alpaca gracefully rejects non-shortable / hard-to-borrow assets
                      logger.error(f"Failed to short {target} (Asset may be hard to borrow): {alp_e}")
