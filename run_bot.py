@@ -54,6 +54,7 @@ def run_single_cycle():
              return
              
         # Execute Live Order logic routing directly to Alpaca
+        import sys
         from alpaca.trading.client import TradingClient
         from alpaca.trading.requests import MarketOrderRequest, TrailingStopOrderRequest
         from alpaca.trading.enums import OrderSide, TimeInForce
@@ -65,7 +66,21 @@ def run_single_cycle():
         client = TradingClient(api_key, sec_key, paper=True)
         data_client = StockHistoricalDataClient(api_key, sec_key)
         
-        # 2A. Statistical Arbitrage (Pairs Trading)
+        # 0. Macro-Economic Freezing (FED/CPI Defense)
+        try:
+             from ai.macro_agent import MacroAgent
+             if MacroAgent().check_for_hurricane():
+                 logger.critical("Executing EMERGENCY PROTOCOL! Liquidating all open positions due to FED/Macro Volatility.")
+                 try:
+                     client.close_all_positions(cancel_orders=True)
+                 except Exception as liq_e:
+                     logger.error(f"Liquidation error: {liq_e}")
+                 logger.critical("Bot is freezing operations for the remainder of the day. Cash preserved.")
+                 sys.exit(0)
+        except Exception as m_e:
+             logger.warning(f"MacroAgent bypass: {m_e}")
+        
+        # 1. Statistical Arbitrage (Pairs Trading)
         # Attempt to grab pure quantitative pair divergences independent of ML logic
         try:
              from ai.stat_arb import StatArbAgent
