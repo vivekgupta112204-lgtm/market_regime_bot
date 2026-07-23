@@ -1,15 +1,27 @@
 from dotenv import load_dotenv
 load_dotenv()
-"""Multi-Agent Swarm Intelligence for pre-trade debate and validation."""
+"""
+Multi-Agent Swarm Intelligence Engine (Phase 3: 5-Agent Adversarial Council).
+Implements adversarial AI debate with weighted confidence voting and historical memory.
+"""
 
 import os
 import json
+import re
 from datetime import datetime
 from loguru import logger
 from google import genai
 
+
 class SwarmDebateEngine:
-    """Manages the Bear, Bull, and Judge generative personas."""
+    """
+    Manages a 5-Agent Adversarial Council:
+    1. BULL (Aggressive Buyer)
+    2. BEAR (Aggressive Short Seller)
+    3. RISK ANALYST (Capital Preservation Specialist)
+    4. CONTRARIAN (Devil's Advocate - opposes majority)
+    5. SUPREME JUDGE (Final Weighted Verdict)
+    """
     
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
@@ -17,50 +29,170 @@ class SwarmDebateEngine:
              logger.critical("Swarm Engine failure: GEMINI_API_KEY not found in environment.")
              raise ValueError("GEMINI_API_KEY is required for the LLM Debate Engine.")
         self.client = genai.Client(api_key=self.api_key)
+        self.debate_history = self._load_history()
         
+    def _load_history(self) -> list:
+        """Load past debate outcomes to give Agents historical context."""
+        try:
+            if os.path.exists("logs/swarm_logs.json"):
+                with open("logs/swarm_logs.json", "r", encoding="utf-8") as f:
+                    logs = [json.loads(line) for line in f.readlines() if line.strip()]
+                return logs[-5:]  # Last 5 debates as memory
+        except Exception:
+            pass
+        return []
+    
+    def _build_history_context(self) -> str:
+        """Converts past debates into a text block for agent memory injection."""
+        if not self.debate_history:
+            return "No prior debate history available."
+        
+        context_lines = []
+        for h in self.debate_history:
+            context_lines.append(f"- {h.get('target','?')} ({h.get('signal','?')}): Verdict was {h.get('judge','?')}")
+        return "Recent trade debate outcomes:\n" + "\n".join(context_lines)
+
     def conduct_debate(self, target: str, ppo_signal: str) -> str:
         """
-        Conducts a debate between Bear and Bull on the viability of the trade,
-        and outputs [APPROVED] or [VETO] based on the Judge's verdict.
+        Conducts a 5-Agent adversarial debate with confidence-weighted voting.
+        Returns [APPROVED] or [VETO].
         """
-        logger.info(f"⚖️ SWARM ACTIVATED: Meeting Room opened to debate PPO Signal: {ppo_signal} on {target}")
+        logger.info(f"⚖️ SWARM COUNCIL ACTIVATED: 5-Agent Adversarial Debate opened for {ppo_signal} on {target}")
         
-        # 1. Bull Argument
-        bull_prompt = f"You are a hyper-bullish hedge fund manager. Give exactly 1 short sentence why I must go {ppo_signal} on {target} right now."
+        history_ctx = self._build_history_context()
+        
+        # ═══════════════════════════════════════════
+        # AGENT 1: THE BULL (Aggressive Momentum Buyer)
+        # ═══════════════════════════════════════════
+        bull_prompt = (
+            f"You are an aggressive Wall Street momentum trader with 20 years of experience. "
+            f"The PPO neural network signals {ppo_signal} on {target}. "
+            f"{history_ctx}\n"
+            f"Give your argument in 2 sentences why this trade WILL print money. "
+            f"Then on a new line write 'CONFIDENCE: X%' where X is 0-100."
+        )
         bull_reply = self._query_llm(bull_prompt)
-        logger.info(f"🗣️ [AGENT BULL]: '{bull_reply}'")
+        bull_conf = self._extract_confidence(bull_reply)
+        logger.info(f"📈 [AGENT BULL] (Confidence: {bull_conf}%): '{bull_reply}'")
         
-        # 2. Bear Argument
-        bear_prompt = f"You are a hyper-bearish short seller. Give exactly 1 short sentence why going {ppo_signal} on {target} is a guaranteed disaster."
+        # ═══════════════════════════════════════════
+        # AGENT 2: THE BEAR (Aggressive Short Seller)
+        # ═══════════════════════════════════════════
+        bear_prompt = (
+            f"You are a legendary short seller who profited from the 2008 crash. "
+            f"The PPO model says {ppo_signal} on {target}. The Bull argues: '{bull_reply[:150]}'. "
+            f"Give your counter-argument in 2 sentences why this trade will DESTROY capital. "
+            f"Then on a new line write 'CONFIDENCE: X%' where X is 0-100."
+        )
         bear_reply = self._query_llm(bear_prompt)
-        logger.info(f"🗣️ [AGENT BEAR]: '{bear_reply}'")
+        bear_conf = self._extract_confidence(bear_reply)
+        logger.info(f"📉 [AGENT BEAR] (Confidence: {bear_conf}%): '{bear_reply}'")
         
-        # 3. Judge Argument
-        judge_prompt = f"You are the quantitative judge. The math model suggests {ppo_signal} on {target}. Bull argues: '{bull_reply}'. Bear argues: '{bear_reply}'. You must output ONLY the word [APPROVED] or [VETO] depending on which argument is fundamentally safer to protect capital."
+        # ═══════════════════════════════════════════
+        # AGENT 3: THE RISK ANALYST (Capital Preservation)
+        # ═══════════════════════════════════════════
+        risk_prompt = (
+            f"You are the Chief Risk Officer of a $10 billion hedge fund. "
+            f"Your ONLY job is protecting capital. A {ppo_signal} trade on {target} is proposed. "
+            f"Bull says: '{bull_reply[:100]}'. Bear says: '{bear_reply[:100]}'. "
+            f"Analyze the risk/reward ratio in 2 sentences. Focus on maximum possible loss. "
+            f"Then on a new line write 'RISK_SCORE: X/10' where 1=safe, 10=extremely dangerous."
+        )
+        risk_reply = self._query_llm(risk_prompt)
+        risk_score = self._extract_risk_score(risk_reply)
+        logger.info(f"🛡️ [AGENT RISK] (Risk: {risk_score}/10): '{risk_reply}'")
+        
+        # ═══════════════════════════════════════════
+        # AGENT 4: THE CONTRARIAN (Devil's Advocate)
+        # ═══════════════════════════════════════════
+        # Contrarian ALWAYS argues opposite of the majority
+        majority_is_bullish = bull_conf > bear_conf
+        contrarian_stance = "against" if majority_is_bullish else "for"
+        
+        contrarian_prompt = (
+            f"You are a contrarian hedge fund manager who ALWAYS bets against the crowd. "
+            f"The majority of agents are currently leaning {'bullish' if majority_is_bullish else 'bearish'} on {target}. "
+            f"Give exactly 1 sentence arguing {contrarian_stance} the {ppo_signal} trade. "
+            f"Then write 'CONVICTION: X%' where X is how strongly you disagree with the majority."
+        )
+        contrarian_reply = self._query_llm(contrarian_prompt)
+        contrarian_conf = self._extract_confidence(contrarian_reply, keyword="CONVICTION")
+        logger.info(f"🔄 [AGENT CONTRARIAN]: '{contrarian_reply}'")
+        
+        # ═══════════════════════════════════════════
+        # AGENT 5: THE SUPREME JUDGE (Weighted Final Verdict)
+        # ═══════════════════════════════════════════
+        judge_prompt = (
+            f"You are the Supreme Quantitative Judge of a trading tribunal. "
+            f"A {ppo_signal} trade on {target} has been debated by 4 expert agents:\n"
+            f"- BULL (Confidence {bull_conf}%): '{bull_reply[:100]}'\n"
+            f"- BEAR (Confidence {bear_conf}%): '{bear_reply[:100]}'\n"
+            f"- RISK OFFICER (Risk Score {risk_score}/10): '{risk_reply[:100]}'\n"
+            f"- CONTRARIAN: '{contrarian_reply[:100]}'\n\n"
+            f"Rules: If Risk Score >= 7, you MUST veto. If Bull confidence > Bear by 30%+, lean approve. "
+            f"Output ONLY the word [APPROVED] or [VETO] followed by one sentence of reasoning."
+        )
         judge_reply = self._query_llm(judge_prompt)
         
-        if "[APPROVED]" in judge_reply.upper():
-             logger.success(f"👨‍⚖️ [AGENT JUDGE]: After reviewing PPO mathematics and Swarm qualitative data, I lock this trade. [APPROVED]")
-             verdict = "[APPROVED]"
+        # ═══════════════════════════════════════════
+        # VERDICT COMPUTATION (Weighted Council Vote)
+        # ═══════════════════════════════════════════
+        # Hard rules override LLM judgment for safety
+        if risk_score >= 8:
+            verdict = "[VETO]"
+            logger.error(f"⛔ [SUPREME JUDGE]: RISK OVERRIDE — Risk score {risk_score}/10 exceeds safety threshold. [VETO]")
+        elif risk_score >= 7 and bear_conf > bull_conf:
+            verdict = "[VETO]"
+            logger.error(f"⛔ [SUPREME JUDGE]: High risk ({risk_score}/10) + Bear dominance ({bear_conf}% > {bull_conf}%). [VETO]")
+        elif "[APPROVED]" in judge_reply.upper():
+            verdict = "[APPROVED]"
+            logger.success(f"👨‍⚖️ [SUPREME JUDGE]: Council vote passes. Trade authorized. [APPROVED]")
         else:
-             logger.error(f"👨‍⚖️ [AGENT JUDGE]: The downside qualitative risk heavily outweighs the quantitative momentum. I am blocking execution. [VETO]")
-             verdict = "[VETO]"
-             
+            verdict = "[VETO]"
+            logger.error(f"⛔ [SUPREME JUDGE]: Council rejected the proposal. [VETO]")
+        
+        # Save full debate transcript to logs
         try:
              log_data = {
                  "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                  "target": target,
                  "signal": ppo_signal,
                  "bull": bull_reply,
+                 "bull_confidence": bull_conf,
                  "bear": bear_reply,
+                 "bear_confidence": bear_conf,
+                 "risk_analyst": risk_reply,
+                 "risk_score": risk_score,
+                 "contrarian": contrarian_reply,
                  "judge": verdict
              }
+             os.makedirs("logs", exist_ok=True)
              with open("logs/swarm_logs.json", "a", encoding="utf-8") as f:
                  f.write(json.dumps(log_data) + "\n")
-        except Exception as file_e:
+        except Exception:
              pass
              
         return verdict
+
+    def _extract_confidence(self, text: str, keyword: str = "CONFIDENCE") -> int:
+        """Extracts confidence percentage from LLM output."""
+        try:
+            match = re.search(rf'{keyword}:\s*(\d+)', text, re.IGNORECASE)
+            if match:
+                return min(int(match.group(1)), 100)
+        except Exception:
+            pass
+        return 50  # Default neutral confidence
+    
+    def _extract_risk_score(self, text: str) -> int:
+        """Extracts risk score (1-10) from Risk Analyst output."""
+        try:
+            match = re.search(r'RISK_SCORE:\s*(\d+)', text, re.IGNORECASE)
+            if match:
+                return min(int(match.group(1)), 10)
+        except Exception:
+            pass
+        return 5  # Default moderate risk
 
     def _query_llm(self, prompt: str) -> str:
         """Helper to fetch completions from Gemini strictly for production."""
@@ -69,7 +201,7 @@ class SwarmDebateEngine:
                  model='gemini-1.5-flash',
                  contents=prompt,
              )
-             return response.text.strip().replace('\n', '')
+             return response.text.strip().replace('\n', ' ')
         except Exception as e:
              logger.error(f"LLM API Call Failed: {e}")
              raise e
