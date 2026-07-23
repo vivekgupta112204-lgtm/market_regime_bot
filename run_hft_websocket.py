@@ -5,11 +5,19 @@ load_dotenv()
 import os
 import sys
 import asyncio
+import numpy as np
 from loguru import logger
+from numba import njit
 from alpaca.data.live import StockDataStream
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+
+# Bypass Python GIL via LLVM C-Compilation
+@njit(fastmath=True, nogil=True)
+def calculate_nano_momentum_c(tick_array: np.ndarray) -> float:
+    """Calculates instantaneous micro-momentum directly in C machine-memory (GIL released)."""
+    return tick_array[-1] - tick_array[0]
 
 # 1. API Credentials
 API_KEY = os.getenv("ALPACA_API_KEY")
@@ -40,10 +48,11 @@ class UltraLowLatencyHFT:
         # Append to micro-window 
         self.tick_window.append(price)
         if len(self.tick_window) > 10:
-             self.tick_window.pop(0) # Keep rolling window of last 10 ticks
+             self.tick_window.pop(0)
              
-             # Calculate micro-momentum (Nanosecond alpha)
-             price_delta = self.tick_window[-1] - self.tick_window[0]
+             # Calculate micro-momentum using C-compiled No-GIL engine
+             tick_array = np.array(self.tick_window, dtype=np.float32)
+             price_delta = calculate_nano_momentum_c(tick_array)
              
              if price_delta > 0.05: # High positive micro-momentum burst (5 cents in 10 ticks)
                   logger.info(f"⚡ [HFT TRIGGER]: {self.symbol} Nano-Momentum Burst (+${price_delta:.2f}). Firing LONG Scalp!")
