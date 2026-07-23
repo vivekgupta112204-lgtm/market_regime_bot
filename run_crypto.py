@@ -56,12 +56,30 @@ def run_crypto_cycle():
     else:
         client = TradingClient(api_key, sec_key, paper=True)
         
-    # 4. Execute ML predictions
+         # 4. Execute ML predictions
     for target in crypto_targets:
          logger.info(f"Scanning 24/7 Momentum Vector for {target}...")
          
-         # Synthesized internal state replacing standard stock data.
-         state_vector = np.array([0.05, 0.08, 0.05, 0.0, 1.0, 1.0], dtype=np.float32)
+         # Dynamically fetch the real live 1-hour return of the crypto to feed the AI
+         try:
+             import yfinance as yf
+             # Convert target like BTC/USD to yahoo format BTC-USD
+             yf_symbol = target.replace("/", "-")
+             data = yf.download(yf_symbol, period="5d", interval="1h", progress=False)['Close']
+             if not data.empty and len(data) >= 2:
+                 live_return = float((data.iloc[-1] - data.iloc[-2]) / data.iloc[-2])
+                 live_volatility = float(data.pct_change().std().iloc[0]) if isinstance(data.pct_change().std(), pd.Series) else float(data.pct_change().std())
+             else:
+                 live_return = 0.05
+                 live_volatility = 0.02
+         except Exception as data_err:
+             logger.warning(f"Failed to fetch live data for {target}: {data_err}")
+             live_return = 0.05
+             live_volatility = 0.02
+             
+         # Synthesized internal stat matching observation space (Returns, Vol, Spread, Pos, Regime, BalRatio)
+         state_vector = np.array([live_return, live_volatility, 0.01, 0.0, 1.0, 1.0], dtype=np.float32)
+         
          action, _states = rl_model.predict(state_vector, deterministic=True)
          
          try:
