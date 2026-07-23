@@ -1,0 +1,47 @@
+name: 24/7 Crypto Trading Bot Cron
+
+on:
+  schedule:
+    # Intraday 24/7 trading: Evaluate every 15 minutes continuously
+    # No time bounds, no day bounds (0-6 meaning Sun-Sat)
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI for testing
+
+jobs:
+  crypto_execution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # Slightly tighter timeout to preserve minutes
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        continue-on-error: false
+
+      - name: Execute 24/7 Crypto PPO Bot
+        env:
+          # Securely inject GitHub Secrets into the runtime environment
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          BOT_MODE: "CRYPTO_PRODUCTION"
+        run: |
+          echo "Initiating 24/7 Crypto Momentum Scanning..."
+          python run_crypto.py > crypto_run_logs.txt 2>&1
+
+      - name: Upload Crypto Trade Logs as Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-execution-logs
+          path: crypto_run_logs.txt
+          retention-days: 7
