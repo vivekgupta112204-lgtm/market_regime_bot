@@ -3,6 +3,8 @@ load_dotenv()
 """Multi-Agent Swarm Intelligence for pre-trade debate and validation."""
 
 import os
+import json
+from datetime import datetime
 from loguru import logger
 from google import genai
 
@@ -39,10 +41,26 @@ class SwarmDebateEngine:
         
         if "[APPROVED]" in judge_reply.upper():
              logger.success(f"👨‍⚖️ [AGENT JUDGE]: After reviewing PPO mathematics and Swarm qualitative data, I lock this trade. [APPROVED]")
-             return "[APPROVED]"
+             verdict = "[APPROVED]"
         else:
              logger.error(f"👨‍⚖️ [AGENT JUDGE]: The downside qualitative risk heavily outweighs the quantitative momentum. I am blocking execution. [VETO]")
-             return "[VETO]"
+             verdict = "[VETO]"
+             
+        try:
+             log_data = {
+                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                 "target": target,
+                 "signal": ppo_signal,
+                 "bull": bull_reply,
+                 "bear": bear_reply,
+                 "judge": verdict
+             }
+             with open("logs/swarm_logs.json", "a", encoding="utf-8") as f:
+                 f.write(json.dumps(log_data) + "\n")
+        except Exception as file_e:
+             pass
+             
+        return verdict
 
     def _query_llm(self, prompt: str) -> str:
         """Helper to fetch completions from Gemini strictly for production."""

@@ -74,3 +74,55 @@ def render_main_content(portfolio: dict, performance: dict, positions: list, his
     # Active Positions
     st.subheader("Active Positions")
     render_positions_table(positions)
+    
+    st.divider()
+    
+    # Swarm AI Live Chat Room
+    st.markdown("<h2>⚡ Multi-Agent Swarm Intelligence (Live Debate Network)</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94A3B8; margin-bottom: 20px;'>Live intercept of generative AI adversarial agents debating incoming quantitative signals.</p>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    <style>
+    .chat-timestamp {
+        font-size: 0.7rem;
+        opacity: 0.7;
+        margin-left: 10px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    try:
+        import json
+        import os
+        if os.path.exists("logs/swarm_logs.json"):
+            with open("logs/swarm_logs.json", "r", encoding="utf-8") as f:
+                logs = [json.loads(line) for line in f.readlines() if line.strip()]
+            
+            # Display last 3 debates
+            logs = logs[-3:]
+            
+            for log in reversed(logs):
+                st.markdown(f"<h4 style='color: #E2E8F0; margin-top: 10px;'>Target: {log['target']} | Signal: {log['signal']} <span class='chat-timestamp'>{log['timestamp']}</span></h4>", unsafe_allow_html=True)
+                
+                # Chat Interface Layout
+                st.markdown(f'''
+                    <div style="background-color: rgba(16, 185, 129, 0.1); border-left: 4px solid #10B981; padding: 15px; margin-bottom: 10px; border-radius: 4px;">
+                        <span style="font-weight: 800; color: #10B981;">📈 AI BULL:</span> {log['bull']}
+                    </div>
+                    <div style="background-color: rgba(239, 68, 68, 0.1); border-left: 4px solid #EF4444; padding: 15px; margin-bottom: 10px; border-radius: 4px;">
+                        <span style="font-weight: 800; color: #EF4444;">📉 AI BEAR:</span> {log['bear']}
+                    </div>
+                ''', unsafe_allow_html=True)
+                
+                verdict_color = "#10B981" if "APPROVED" in log['judge'] else "#EF4444"
+                verdict_icon = "👨‍⚖️" if "APPROVED" in log['judge'] else "⛔"
+                
+                st.markdown(f'''
+                    <div style="background-color: rgba(56, 189, 248, 0.1); border: 1px solid {verdict_color}; padding: 15px; margin-bottom: 30px; border-radius: 8px; text-align: center;">
+                        <h3 style="color: {verdict_color}; margin: 0;">{verdict_icon} THE QUANT JUDGE VERDICT: {log['judge']}</h3>
+                    </div>
+                ''', unsafe_allow_html=True)
+        else:
+            st.info("Waiting for AI Agents to intercept new target signals from the ML PPO Engine...")
+    except Exception as e:
+        st.warning("Swarm logs parsing failed. The module may be initializing.")
