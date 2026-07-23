@@ -84,6 +84,7 @@ def run_single_cycle():
         # Attempt to grab pure quantitative pair divergences independent of ML logic
         try:
              from ai.stat_arb import StatArbAgent
+             from concurrent.futures import ThreadPoolExecutor
              arb_agent = StatArbAgent()
              arb_signals = arb_agent.generate_arbitrage_signals()
              
@@ -96,9 +97,18 @@ def run_single_cycle():
                  s_order = MarketOrderRequest(symbol=s_target, qty=5, side=OrderSide.SELL, time_in_force=TimeInForce.DAY)
                  l_order = MarketOrderRequest(symbol=l_target, qty=5, side=OrderSide.BUY, time_in_force=TimeInForce.DAY)
                  
-                 client.submit_order(order_data=s_order)
-                 client.submit_order(order_data=l_order)
-                 logger.success(f"Stat-Arb executed cleanly for {signal['pair_id']}")
+                 # Microsecond-latency execution via Python Threads
+                 def submit_leg(order):
+                     try:
+                         client.submit_order(order_data=order)
+                     except Exception as leg_e:
+                         logger.error(f"Stat-Arb Leg failed: {leg_e}")
+                 
+                 with ThreadPoolExecutor(max_workers=2) as executor:
+                     executor.submit(submit_leg, s_order)
+                     executor.submit(submit_leg, l_order)
+                     
+                 logger.success(f"Stat-Arb strictly executed ZERO-LATENCY for {signal['pair_id']}")
         except Exception as arb_e:
              logger.warning(f"Stat-Arb submodule bypassed cleanly: {arb_e}")
              

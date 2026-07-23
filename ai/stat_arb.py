@@ -49,7 +49,8 @@ class StatArbAgent:
         for asset_a, asset_b in self.pairs:
             z_score, price_a, price_b = self.calculate_z_score(asset_a, asset_b)
             
-            if z_score > 2.0:
+            # Bound between 2.0 and 3.0 to avoid Fundamental Leg-Risk Breakouts
+            if 2.0 < z_score <= 3.0:
                 logger.success(f"Stat-Arb Anomaly Detected! {asset_a}/{asset_b} Z-Score = {z_score:.2f} (Overvalued {asset_a})")
                 signals.append({
                     "pair_id": f"{asset_a}_{asset_b}",
@@ -57,7 +58,7 @@ class StatArbAgent:
                     "long_target": asset_b,
                     "z_score": z_score
                 })
-            elif z_score < -2.0:
+            elif -3.0 <= z_score < -2.0:
                 logger.success(f"Stat-Arb Anomaly Detected! {asset_a}/{asset_b} Z-Score = {z_score:.2f} (Undervalued {asset_a})")
                 signals.append({
                     "pair_id": f"{asset_a}_{asset_b}",
@@ -65,6 +66,8 @@ class StatArbAgent:
                     "long_target": asset_a,
                     "z_score": z_score
                 })
+            elif abs(z_score) > 3.0:
+                logger.warning(f"Leg-Risk Abort: {asset_a}/{asset_b} Z-Score {z_score:.2f} exceeded 3.0. Fundamental split occurring, halting pair execution.")
             else:
                 logger.debug(f"Pair {asset_a}/{asset_b} perfectly correlated (Z: {z_score:.2f}). No arb opportunity.")
                 

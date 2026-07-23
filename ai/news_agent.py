@@ -26,6 +26,8 @@ class NewsAgent:
     def fetch_news(self, query: str = "stock market") -> list[str]:
         headlines = []
         
+        spam_keywords = ["1000x", "pump", "to the moon", "guaranteed", "airdrop", "scam"]
+        
         # Twitter (X) Alternative Data Route
         twitter_token = os.getenv("TWITTER_BEARER_TOKEN")
         if twitter_token and self.provider == "twitter":
@@ -37,9 +39,13 @@ class NewsAgent:
                 # Fetch recent live tweets
                 response = client.search_recent_tweets(query=twitter_query, max_results=10)
                 if response.data:
-                    headlines = [tweet.text for tweet in response.data]
-                    logger.info(f"Successfully fetched {len(headlines)} live Tweets for {query}")
-                    return headlines
+                    for tweet in response.data:
+                        text = tweet.text
+                        if not any(spam in text.lower() for spam in spam_keywords):
+                             headlines.append(text)
+                    logger.info(f"Successfully fetched {len(headlines)} clean live Tweets for {query} (Filtered Spam)")
+                    if headlines:
+                        return headlines
             except Exception as tw_e:
                 logger.warning(f"Twitter Sync failed (falling back to NewsAPI): {tw_e}")
                 self.provider = "newsapi" # Graceful fallback
