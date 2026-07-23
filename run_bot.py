@@ -142,6 +142,16 @@ def run_single_cycle():
              
              action, _states = rl_model.predict(state_vector, deterministic=True)
              
+             # Dark Pool Radar Gate 🐋
+             try:
+                 from ai.dark_pool_radar import DarkPoolRadar
+                 radar = DarkPoolRadar()
+                 flow_data = radar.scan_unusual_flow(target)
+                 whale_sentiment = flow_data["whale_sentiment"]
+             except Exception as dp_e:
+                 logger.warning(f"DarkPoolRadar bypassed for {target}: {dp_e}")
+                 whale_sentiment = 0.0
+             
              # Microstructure Gate (Synthetic Level 2 Imbalance)
              try:
                  req = StockLatestQuoteRequest(symbol_or_symbols=target)
@@ -161,6 +171,10 @@ def run_single_cycle():
              if action[0] > 0.1: # Confidence threshold for LONG
                  if imbalance_long > 5.0:
                      logger.warning(f"Synthetic L2 Filter ABORTED long trade on {target}. Massive Sell Wall Detected (Ratio: {imbalance_long:.1f})")
+                     continue
+                     
+                 if whale_sentiment == -1.0:
+                     logger.error(f"Dark Pool VETO on {target}: Massive PUT Sweeps detected against Long setup. Retreating.")
                      continue
                      
                  logger.info(f"RL Agent Confirmed LONG action ({action[0]:.2f}) for {target}")
@@ -193,6 +207,10 @@ def run_single_cycle():
              elif action[0] < -0.1: # Confidence threshold for SHORT (Bear Signal)
                  if imbalance_short > 5.0:
                      logger.warning(f"Synthetic L2 Filter ABORTED short trade on {target}. Massive Buy Wall Detected (Ratio: {imbalance_short:.1f})")
+                     continue
+                     
+                 if whale_sentiment == 1.0:
+                     logger.error(f"Dark Pool VETO on {target}: Massive CALL Sweeps detected against Short setup. Retreating.")
                      continue
                      
                  logger.warning(f"RL Agent Confirmed SHORT/SELL action ({-action[0]:.2f} conviction) for {target}. Preparing to Short Sell.")
