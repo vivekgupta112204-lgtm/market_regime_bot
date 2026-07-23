@@ -1,2 +1,45 @@
 2026-07-22 19:15:26.887 | ERROR    | __main__:run_single_cycle:53 - Trade cycle failed: No module named 'joblib'
 2026-07-22 19:33:28.072 | ERROR    | __main__:run_single_cycle:72 - Trade cycle failed: No module named 'joblib'
+2026-07-23 13:31:05.188 | ERROR    | __main__:run_single_cycle:287 - Trade cycle failed: No module named 'joblib'
+2026-07-23 13:31:43.764 | INFO     | __main__:run_single_cycle:32 - --- Initializing Serverless INTRADAY Trade Cycle ---
+2026-07-23 13:31:43.865 | INFO     | data_loader.us_scanner:scan_morning_opportunities:29 - Initiating Pre-Market/Morning US Scan for Intraday Opportunities...
+2026-07-23 13:31:54.734 | INFO     | data_loader.us_scanner:scan_morning_opportunities:72 - US Market Scan Complete. Found 10 intraday opportunities.
+2026-07-23 13:31:54.735 | INFO     | __main__:run_single_cycle:54 - Targets pending Reinforcement Learning State validation: ['BAC', 'JPM', 'RIOT', 'XOM', 'JNJ', 'ORCL', 'ABT', 'TMO', 'GS', 'MS']
+2026-07-23 13:32:05.519 | INFO     | ai.macro_agent:check_for_hurricane:17 - MacroAgent scanning Global Economic Calendar for incoming storms...
+2026-07-23 13:32:06.570 | INFO     | ai.macro_agent:check_for_hurricane:38 - Macro Weather is clear. No FED actions today.
+2026-07-23 13:32:06.578 | INFO     | ai.stat_arb:generate_arbitrage_signals:47 - Stat-Arb Agent initiating pair divergence sweep...
+2026-07-23 13:32:07.399 | DEBUG    | ai.stat_arb:generate_arbitrage_signals:72 - Pair V/MA perfectly correlated (Z: 1.19). No arb opportunity.
+2026-07-23 13:32:08.086 | DEBUG    | ai.stat_arb:generate_arbitrage_signals:72 - Pair KO/PEP perfectly correlated (Z: -0.52). No arb opportunity.
+2026-07-23 13:32:08.796 | DEBUG    | ai.stat_arb:generate_arbitrage_signals:72 - Pair CVX/XOM perfectly correlated (Z: -1.06). No arb opportunity.
+2026-07-23 13:32:09.513 | DEBUG    | ai.stat_arb:generate_arbitrage_signals:72 - Pair META/GOOGL perfectly correlated (Z: -0.06). No arb opportunity.
+2026-07-23 13:32:09.513 | INFO     | __main__:run_single_cycle:141 - Analyzing BAC via Live PPO state...
+2026-07-23 13:32:10.234 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for BAC: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:14.040 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for BAC.
+2026-07-23 13:32:14.041 | INFO     | __main__:run_single_cycle:141 - Analyzing JPM via Live PPO state...
+2026-07-23 13:32:14.722 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for JPM: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:16.949 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for JPM.
+2026-07-23 13:32:16.949 | INFO     | __main__:run_single_cycle:141 - Analyzing RIOT via Live PPO state...
+2026-07-23 13:32:17.587 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for RIOT: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:19.664 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for RIOT.
+2026-07-23 13:32:19.664 | INFO     | __main__:run_single_cycle:141 - Analyzing XOM via Live PPO state...
+2026-07-23 13:32:20.299 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for XOM: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:23.370 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for XOM.
+2026-07-23 13:32:23.370 | INFO     | __main__:run_single_cycle:141 - Analyzing JNJ via Live PPO state...
+2026-07-23 13:32:24.103 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for JNJ: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:25.808 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for JNJ.
+2026-07-23 13:32:25.808 | INFO     | __main__:run_single_cycle:141 - Analyzing ORCL via Live PPO state...
+2026-07-23 13:32:26.467 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for ORCL: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:28.565 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for ORCL.
+2026-07-23 13:32:28.565 | INFO     | __main__:run_single_cycle:141 - Analyzing ABT via Live PPO state...
+2026-07-23 13:32:29.216 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for ABT: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:31.227 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for ABT.
+2026-07-23 13:32:31.227 | INFO     | __main__:run_single_cycle:141 - Analyzing TMO via Live PPO state...
+2026-07-23 13:32:31.908 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for TMO: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:34.397 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for TMO.
+2026-07-23 13:32:34.397 | INFO     | __main__:run_single_cycle:141 - Analyzing GS via Live PPO state...
+2026-07-23 13:32:35.089 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for GS: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:37.662 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for GS.
+2026-07-23 13:32:37.662 | INFO     | __main__:run_single_cycle:141 - Analyzing MS via Live PPO state...
+2026-07-23 13:32:38.247 | WARNING  | __main__:run_single_cycle:154 - Failed to fetch live history for MS: float() argument must be a string or a real number, not 'Series'
+2026-07-23 13:32:40.614 | INFO     | __main__:run_single_cycle:282 - RL Agent recommends HOLD (No Action) for MS.
+2026-07-23 13:32:40.614 | INFO     | __main__:run_single_cycle:284 - --- Serverless Trade Cycle Completed ---

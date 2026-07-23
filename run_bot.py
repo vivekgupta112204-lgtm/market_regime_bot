@@ -145,7 +145,10 @@ def run_single_cycle():
                  import pandas as pd
                  data = yf.download(target, period="5d", interval="1h", progress=False)['Close']
                  if not data.empty and len(data) >= 2:
-                     live_return = float((data.iloc[-1] - data.iloc[-2]) / data.iloc[-2])
+                     try:
+                         live_return = float(data.iloc[-1, 0] - data.iloc[-2, 0]) / float(data.iloc[-2, 0])
+                     except:
+                         live_return = float((data.iloc[-1] - data.iloc[-2]) / data.iloc[-2])
                      live_volatility = float(data.pct_change().std().iloc[0]) if isinstance(data.pct_change().std(), pd.Series) else float(data.pct_change().std())
                  else:
                      live_return = 0.05
