@@ -55,7 +55,7 @@ def run_single_cycle():
              
         # Execute Live Order logic routing directly to Alpaca
         from alpaca.trading.client import TradingClient
-        from alpaca.trading.requests import MarketOrderRequest
+        from alpaca.trading.requests import MarketOrderRequest, TrailingStopOrderRequest
         from alpaca.trading.enums import OrderSide, TimeInForce
         from alpaca.data.historical import StockHistoricalDataClient
         from alpaca.data.requests import StockLatestQuoteRequest
@@ -126,6 +126,17 @@ def run_single_cycle():
                      )
                      client.submit_order(order_data=order_req)
                      logger.success(f"Successfully placed order for {target} guided by RL.")
+                     
+                     # Submitting server-side Trailing Stop Loss to lock profits
+                     stop_req = TrailingStopOrderRequest(
+                         symbol=target,
+                         qty=5,
+                         side=OrderSide.SELL,
+                         time_in_force=TimeInForce.GTC,
+                         trail_percent=2.0
+                     )
+                     client.submit_order(order_data=stop_req)
+                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for {target}.")
                  except Exception as alp_e:
                      logger.error(f"Failed to place live order: {alp_e}")
                      
@@ -144,6 +155,17 @@ def run_single_cycle():
                      )
                      client.submit_order(order_data=order_req)
                      logger.success(f"Successfully SHORTED {target} to profit from immediate downside.")
+                     
+                     # Submitting server-side Trailing Stop on the BUY side for Shorts
+                     stop_req = TrailingStopOrderRequest(
+                         symbol=target,
+                         qty=5,
+                         side=OrderSide.BUY,
+                         time_in_force=TimeInForce.GTC,
+                         trail_percent=2.0
+                     )
+                     client.submit_order(order_data=stop_req)
+                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for SHORT {target}.")
                  except Exception as alp_e:
                      # Alpaca gracefully rejects non-shortable / hard-to-borrow assets
                      logger.error(f"Failed to short {target} (Asset may be hard to borrow): {alp_e}")
