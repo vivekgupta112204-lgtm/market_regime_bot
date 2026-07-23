@@ -189,7 +189,7 @@ def run_single_cycle():
                  imbalance_long = 1.0
                  imbalance_short = 1.0
              
-             if action[0] > 0.1: # Confidence threshold for LONG
+             if action[0] > 0.03: # Confidence threshold for LONG
                  if macro_danger:
                      logger.warning(f"Macro (FED) VETO on {target}. No new Directional LONG Bets authorized during high volatility.")
                      continue
@@ -237,7 +237,7 @@ def run_single_cycle():
                  except Exception as alp_e:
                      logger.error(f"Failed to place live order: {alp_e}")
                      
-             elif action[0] < -0.1: # Confidence threshold for SHORT (Bear Signal)
+             elif action[0] < -0.03: # Confidence threshold for SHORT (Bear Signal)
                  if imbalance_short > 5.0:
                      logger.warning(f"Synthetic L2 Filter ABORTED short trade on {target}. Massive Buy Wall Detected (Ratio: {imbalance_short:.1f})")
                      continue

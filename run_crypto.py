@@ -89,7 +89,7 @@ def run_crypto_cycle():
          action, _states = rl_model.predict(state_vector, deterministic=True)
          
          try:
-             if action[0] > 0.1: # Confidence threshold for LONG
+             if action[0] > 0.03: # Confidence threshold for LONG
                  logger.info(f"RL Agent Confirmed LONG action ({action[0]:.2f}) for {target}")
                  
                  order_req = MarketOrderRequest(
@@ -101,7 +101,7 @@ def run_crypto_cycle():
                  client.submit_order(order_data=order_req)
                  logger.success(f"Bought ${TRADE_NOTIONAL_USD} fractional {target}.")
                      
-             elif action[0] < -0.1: # Confidence threshold for SHORT (Bear Signal)
+             elif action[0] < -0.03: # Confidence threshold for SHORT (Bear Signal)
                  logger.warning(f"RL Agent Confirmed SHORT action ({-action[0]:.2f}) for {target}")
                  
                  # Alpaca Crypto Shorting (Requires margin/specific approval)
