@@ -20,27 +20,27 @@ def _get(endpoint: str) -> dict:
         pass
     return {}
 
-@st.cache_data(ttl=1)  # Cache for 1 second to avoid spamming the backend during rerenders
+@st.cache_data(ttl=1, show_spinner=False)  # Cache for 1 second to avoid spamming the backend during rerenders
 def fetch_status() -> dict:
     return _get("/status")
 
-@st.cache_data(ttl=1)
+@st.cache_data(ttl=1, show_spinner=False)
 def fetch_portfolio() -> dict:
     return _get("/portfolio")
 
-@st.cache_data(ttl=1)
+@st.cache_data(ttl=1, show_spinner=False)
 def fetch_positions() -> list:
     return _get("/positions") or []
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=5, show_spinner=False)
 def fetch_performance() -> dict:
     return _get("/performance")
     
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=5, show_spinner=False)
 def fetch_history() -> dict:
     return _get("/history")
 
-@st.cache_data(ttl=2)
+@st.cache_data(ttl=2, show_spinner=False)
 def fetch_health() -> dict:
     return _get("/health")
 

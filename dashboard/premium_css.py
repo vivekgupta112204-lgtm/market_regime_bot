@@ -72,5 +72,11 @@ def get_premium_css():
         .stMarkdown p {
             color: #CBD5E1;
         }
+        
+        /* Hide default Streamlit elements */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        .stStatusWidget {visibility: hidden;}
     </style>
     """
