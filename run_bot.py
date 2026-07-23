@@ -53,14 +53,14 @@ def run_single_cycle():
         # 2. Evaluate targets with RL AI Agent (PPO)
         logger.info(f"Targets pending Reinforcement Learning State validation: {top_targets}")
         
-        # We attempt to load the pre-trained RL model.
-        from stable_baselines3 import PPO
+        # We attempt to load the pre-trained Multi-Modal LSTM model.
+        from sb3_contrib import RecurrentPPO
         import numpy as np
         
         try:
-             rl_model = PPO.load("models/ppo_agent.zip")
+             rl_model = RecurrentPPO.load("models/recurrent_ppo_agent.zip")
         except Exception:
-             logger.warning("RL Model not found! Ensure python -m rl.training is run. Bypassing execution.")
+             logger.warning("LSTM Model not found! Ensure python mlops_retrainer.py is run. Bypassing execution.")
              return
              
         # Execute Live Order logic routing directly to Alpaca
@@ -158,36 +158,43 @@ def run_single_cycle():
                  live_return = 0.05
                  live_volatility = 0.02
                  
-             # Synthesize actual realtime state mapping
-             state_vector = np.array([live_return, live_volatility, 0.01, 0.0, 1.0, 1.0], dtype=np.float32)
-             
-             action, _states = rl_model.predict(state_vector, deterministic=True)
-             
-             # Dark Pool Radar Gate 🐋
+             # Fetch Dark Pool Sentiment
              try:
                  from ai.dark_pool_radar import DarkPoolRadar
                  radar = DarkPoolRadar()
                  flow_data = radar.scan_unusual_flow(target)
-                 whale_sentiment = flow_data["whale_sentiment"]
+                 whale_sentiment = flow_data.get("whale_sentiment", 0.0)
              except Exception as dp_e:
                  logger.warning(f"DarkPoolRadar bypassed for {target}: {dp_e}")
                  whale_sentiment = 0.0
              
-             # Microstructure Gate (Synthetic Level 2 Imbalance)
+             # Fetch Microstructure L2 Imbalance
              try:
                  req = StockLatestQuoteRequest(symbol_or_symbols=target)
                  quote_dict = data_client.get_stock_latest_quote(req)
                  target_quote = quote_dict.get(target)
-                 
                  ask_size = float(target_quote.ask_size) if target_quote else 0.0
                  bid_size = float(target_quote.bid_size) if target_quote else 0.0
-                 
                  imbalance_long = ask_size / (bid_size + 1.0)
                  imbalance_short = bid_size / (ask_size + 1.0)
              except Exception as q_e:
-                 logger.warning(f"Failed to fetch L1 Microstructure Quotes for {target}: {q_e}. Bypassing Gate.")
+                 logger.warning(f"L2 Microstructure failed for {target}: {q_e}")
                  imbalance_long = 1.0
                  imbalance_short = 1.0
+                 
+             # Synthesize actual realtime state mapping (8-Dimensional Multi-Modal)
+             state_vector = np.array([
+                 live_return, 
+                 live_volatility, 
+                 0.01, # Spread
+                 0.0,  # Pos
+                 1.0,  # Regime
+                 1.0,  # Capital Ratio
+                 whale_sentiment, # Synthetic NLP / Dark Pool 
+                 imbalance_long   # L2 Microstructure Array
+             ], dtype=np.float32)
+             
+             action, _lstm_states = rl_model.predict(state_vector, deterministic=True)
              
              if action[0] > 0.03: # Confidence threshold for LONG
                  if macro_danger:

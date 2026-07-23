@@ -18,7 +18,7 @@ from loguru import logger
 from datetime import datetime
 
 # RL inference setup same as Stock Agent
-from stable_baselines3 import PPO
+from sb3_contrib import RecurrentPPO
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
@@ -38,14 +38,14 @@ def run_crypto_cycle():
     logger.info("--- Booting Crypto PPO 24/7 Environment ---")
     
     # 3. Load RL Agent Brain (If missing, bypass execution but don't crash)
-    model_path = os.path.join(os.path.dirname(__file__), "models", "ppo_agent.zip")
+    model_path = os.path.join(os.path.dirname(__file__), "models", "recurrent_ppo_agent.zip")
     if not os.path.exists(model_path):
-         logger.warning(f"RL Model not found at {model_path}. Exiting cleanly.")
+         logger.warning(f"LSTM Model not found at {model_path}. Exiting cleanly.")
          return
          
     try:
-        rl_model = PPO.load(model_path)
-        logger.info("Successfully loaded RL PPO weights for 24/7 prediction map.")
+        rl_model = RecurrentPPO.load(model_path)
+        logger.info("Successfully loaded RL Recurrent PPO weights for 24/7 prediction map.")
     except Exception as e:
         logger.error(f"Failed to load RL model: {e}")
         return
@@ -83,10 +83,20 @@ def run_crypto_cycle():
              live_return = 0.05
              live_volatility = 0.02
              
-         # Synthesized internal stat matching observation space (Returns, Vol, Spread, Pos, Regime, BalRatio)
-         state_vector = np.array([live_return, live_volatility, 0.01, 0.0, 1.0, 1.0], dtype=np.float32)
+         # Synthesized internal stat matching observation space (8D LSTM Target)
+         # Using 0.0 for NLP/Imbalance to create a neutral non-biased execution field for crypto.
+         state_vector = np.array([
+             live_return, 
+             live_volatility, 
+             0.01, 
+             0.0, 
+             1.0, 
+             1.0,
+             0.0, # NLP Sentiment mock
+             1.0  # L2 Imbalance mock
+         ], dtype=np.float32)
          
-         action, _states = rl_model.predict(state_vector, deterministic=True)
+         action, _lstm_states = rl_model.predict(state_vector, deterministic=True)
          
          try:
              if action[0] > 0.03: # Confidence threshold for LONG

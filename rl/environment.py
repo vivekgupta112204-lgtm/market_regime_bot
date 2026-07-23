@@ -21,8 +21,8 @@ class TradingEnv(gym.Env):
         # Action Space: [-1, 1] representing -100% (Short) to 100% (Long) allocation
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         
-        # Obv Space: [Returns, Volatility, Spread, PrevAction, CurrentRegime, BalanceRatio] = Size 6
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
+        # Obv Space: [Returns, Volatility, Spread, PrevAction, CurrentRegime, BalanceRatio, NLP_Sentiment, L2_Depth] = Size 8
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(8,), dtype=np.float32)
         
     def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
@@ -37,7 +37,7 @@ class TradingEnv(gym.Env):
         # Calculate dynamic features based on current step
         # In a real pipeline, data dataframe already holds pre-calculated technicals
         if self.current_step >= len(self.data):
-             return np.zeros(6, dtype=np.float32)
+             return np.zeros(8, dtype=np.float32)
              
         row = self.data.iloc[self.current_step]
         
@@ -52,7 +52,9 @@ class TradingEnv(gym.Env):
             0.01, # Mock spread
             self.position,
             float(regime),
-            self.net_worth / self.initial_balance
+            self.net_worth / self.initial_balance,
+            row.get("NLP_Sentiment", 0.0), # FinBert / GenAI integration
+            row.get("L2_Imbalance", 1.0) # Microstructure limit wall density
         ], dtype=np.float32)
         return obs
 
