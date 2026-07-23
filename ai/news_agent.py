@@ -24,10 +24,30 @@ class NewsAgent:
             logger.warning("Transformers not installed. Utilizing heuristic fallback.")
 
     def fetch_news(self, query: str = "stock market") -> list[str]:
+        headlines = []
+        
+        # Twitter (X) Alternative Data Route
+        twitter_token = os.getenv("TWITTER_BEARER_TOKEN")
+        if twitter_token and self.provider == "twitter":
+            try:
+                import tweepy
+                client = tweepy.Client(bearer_token=twitter_token)
+                # Ensure english language, no retweets for clean sentiment
+                twitter_query = f"{query} -is:retweet lang:en"
+                # Fetch recent live tweets
+                response = client.search_recent_tweets(query=twitter_query, max_results=10)
+                if response.data:
+                    headlines = [tweet.text for tweet in response.data]
+                    logger.info(f"Successfully fetched {len(headlines)} live Tweets for {query}")
+                    return headlines
+            except Exception as tw_e:
+                logger.warning(f"Twitter Sync failed (falling back to NewsAPI): {tw_e}")
+                self.provider = "newsapi" # Graceful fallback
+        
+        # Traditional NewsAPI Route
         if not self.api_key:
             return ["Stock market rallies today.", "Tech stocks decline on inflation fears."]
             
-        headlines = []
         try:
             if self.provider == "newsapi":
                 url = f"https://newsapi.org/v2/everything?q={query}&apiKey={self.api_key}"
