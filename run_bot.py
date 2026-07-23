@@ -178,6 +178,17 @@ def run_single_cycle():
                      continue
                      
                  logger.info(f"RL Agent Confirmed LONG action ({action[0]:.2f}) for {target}")
+                 
+                 # The Multi-Agent Swarm Debate
+                 try:
+                     from ai.swarm_debater import SwarmDebateEngine
+                     debate_res = SwarmDebateEngine().conduct_debate(target, "LONG")
+                     if "[VETO]" in debate_res:
+                         logger.warning(f"Swarm Judge Override: VETO action on {target}. Trade skipped.")
+                         continue
+                 except Exception as sw_e:
+                     logger.warning(f"Swarm simulation bypassed: {sw_e}")
+                     
                  try:
                      order_req = MarketOrderRequest(
                          symbol=target,
@@ -214,6 +225,17 @@ def run_single_cycle():
                      continue
                      
                  logger.warning(f"RL Agent Confirmed SHORT/SELL action ({-action[0]:.2f} conviction) for {target}. Preparing to Short Sell.")
+                 
+                 # The Multi-Agent Swarm Debate
+                 try:
+                     from ai.swarm_debater import SwarmDebateEngine
+                     debate_res = SwarmDebateEngine().conduct_debate(target, "SHORT")
+                     if "[VETO]" in debate_res:
+                         logger.warning(f"Swarm Judge Override: VETO action on SHORT {target}. Trade skipped.")
+                         continue
+                 except Exception as sw_e:
+                     logger.warning(f"Swarm simulation bypassed: {sw_e}")
+                     
                  try:
                      order_req = MarketOrderRequest(
                          symbol=target,
