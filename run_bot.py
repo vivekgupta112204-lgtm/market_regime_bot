@@ -193,6 +193,28 @@ def run_single_cycle():
                  live_return = 0.05
                  live_volatility = 0.02
                  
+             # News Sentiment Analysis (NLP via Gemini) 📰
+             news_sentiment = 0.0
+             try:
+                 from ai.sentiment_engine import NewsSentimentAnalyzer
+                 news_result = NewsSentimentAnalyzer().analyze_sentiment(target)
+                 news_sentiment = news_result["score"]
+                 if news_result["verdict"] == "BEARISH" and news_sentiment < -0.5:
+                     logger.warning(f"📰 NEGATIVE NEWS DETECTED on {target} (Score: {news_sentiment:+.2f}). Flagging for Swarm review.")
+             except Exception as nlp_e:
+                 logger.warning(f"NLP Sentiment bypassed for {target}: {nlp_e}")
+             
+             # Multi-Timeframe Confluence Check 🔭
+             tf_confluence = 1
+             try:
+                 from ai.sentiment_engine import MultiTimeframeConfluence
+                 mtf_result = MultiTimeframeConfluence().analyze_confluence(target)
+                 tf_confluence = mtf_result["confluence_score"]
+                 if mtf_result["direction"] == "MIXED":
+                     logger.warning(f"🔭 Multi-TF Disagreement on {target}. Only {tf_confluence}/3 timeframes aligned. Proceeding with caution.")
+             except Exception as mtf_e:
+                 logger.warning(f"Multi-TF Confluence bypassed for {target}: {mtf_e}")
+             
              # Fetch Dark Pool Sentiment
              try:
                  from ai.dark_pool_radar import DarkPoolRadar
