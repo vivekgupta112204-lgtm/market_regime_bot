@@ -57,20 +57,42 @@ def run_single_cycle():
         from alpaca.trading.client import TradingClient
         from alpaca.trading.requests import MarketOrderRequest
         from alpaca.trading.enums import OrderSide, TimeInForce
+        from alpaca.data.historical import StockHistoricalDataClient
+        from alpaca.data.requests import StockLatestQuoteRequest
         
         api_key = os.getenv('ALPACA_API_KEY')
         sec_key = os.getenv('ALPACA_SECRET_KEY')
         client = TradingClient(api_key, sec_key, paper=True)
+        data_client = StockHistoricalDataClient(api_key, sec_key)
         
         for target in top_targets:
              logger.info(f"Analyzing {target} via PPO Model state...")
              # Generate a mock state matching observation space (Returns, Vol, Spread, Pos, Regime, BalRatio)
-             # In production, these are piped live from yfinance trailing history.
              state_vector = np.array([0.05, 0.02, 0.01, 0.0, 1.0, 1.0], dtype=np.float32)
              
              action, _states = rl_model.predict(state_vector, deterministic=True)
              
+             # Microstructure Gate (Synthetic Level 2 Imbalance)
+             try:
+                 req = StockLatestQuoteRequest(symbol_or_symbols=target)
+                 quote_dict = data_client.get_stock_latest_quote(req)
+                 target_quote = quote_dict.get(target)
+                 
+                 ask_size = float(target_quote.ask_size) if target_quote else 0.0
+                 bid_size = float(target_quote.bid_size) if target_quote else 0.0
+                 
+                 imbalance_long = ask_size / (bid_size + 1.0)
+                 imbalance_short = bid_size / (ask_size + 1.0)
+             except Exception as q_e:
+                 logger.warning(f"Failed to fetch L1 Microstructure Quotes for {target}: {q_e}. Bypassing Gate.")
+                 imbalance_long = 1.0
+                 imbalance_short = 1.0
+             
              if action[0] > 0.1: # Confidence threshold for LONG
+                 if imbalance_long > 5.0:
+                     logger.warning(f"Synthetic L2 Filter ABORTED long trade on {target}. Massive Sell Wall Detected (Ratio: {imbalance_long:.1f})")
+                     continue
+                     
                  logger.info(f"RL Agent Confirmed LONG action ({action[0]:.2f}) for {target}")
                  try:
                      order_req = MarketOrderRequest(
@@ -83,7 +105,12 @@ def run_single_cycle():
                      logger.success(f"Successfully placed order for {target} guided by RL.")
                  except Exception as alp_e:
                      logger.error(f"Failed to place live order: {alp_e}")
+                     
              elif action[0] < -0.1: # Confidence threshold for SHORT (Bear Signal)
+                 if imbalance_short > 5.0:
+                     logger.warning(f"Synthetic L2 Filter ABORTED short trade on {target}. Massive Buy Wall Detected (Ratio: {imbalance_short:.1f})")
+                     continue
+                     
                  logger.warning(f"RL Agent Confirmed SHORT/SELL action ({-action[0]:.2f} conviction) for {target}. Preparing to Short Sell.")
                  try:
                      order_req = MarketOrderRequest(
