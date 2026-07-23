@@ -11,6 +11,10 @@ def configure_page():
         layout="wide",
         initial_sidebar_state="expanded"
     )
+    
+    # Inject Premium CSS
+    from dashboard.premium_css import get_premium_css
+    st.markdown(get_premium_css(), unsafe_allow_html=True)
 
 def render_sidebar(status_data: dict, post_command):
     st.sidebar.title("HMM Regime Bot")
