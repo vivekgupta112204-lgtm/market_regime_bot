@@ -63,8 +63,14 @@ def run_single_cycle():
         
         api_key = os.getenv('ALPACA_API_KEY')
         sec_key = os.getenv('ALPACA_SECRET_KEY')
-        client = TradingClient(api_key, sec_key, paper=True)
-        data_client = StockHistoricalDataClient(api_key, sec_key)
+        
+        if not api_key or not sec_key:
+             logger.warning("Alpaca API keys missing! Operating in Dry-Run Prediction mode for Presentation.")
+             client = None
+             data_client = None
+        else:
+             client = TradingClient(api_key, sec_key, paper=True)
+             data_client = StockHistoricalDataClient(api_key, sec_key)
         
         # 0. Macro-Economic Freezing (FED/CPI Defense)
         try:
@@ -165,19 +171,22 @@ def run_single_cycle():
                          side=OrderSide.BUY,
                          time_in_force=TimeInForce.DAY
                      )
-                     client.submit_order(order_data=order_req)
-                     logger.success(f"Successfully placed order for {target} guided by RL.")
-                     
-                     # Submitting server-side Trailing Stop Loss to lock profits
-                     stop_req = TrailingStopOrderRequest(
-                         symbol=target,
-                         qty=5,
-                         side=OrderSide.SELL,
-                         time_in_force=TimeInForce.GTC,
-                         trail_percent=2.0
-                     )
-                     client.submit_order(order_data=stop_req)
-                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for {target}.")
+                     if client:
+                         client.submit_order(order_data=order_req)
+                         logger.success(f"Successfully placed order for {target} guided by RL.")
+                         
+                         # Submitting server-side Trailing Stop Loss to lock profits
+                         stop_req = TrailingStopOrderRequest(
+                             symbol=target,
+                             qty=5,
+                             side=OrderSide.SELL,
+                             time_in_force=TimeInForce.GTC,
+                             trail_percent=2.0
+                         )
+                         client.submit_order(order_data=stop_req)
+                         logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for {target}.")
+                     else:
+                         logger.info(f"Dry-Run: Bypassed HIGH-CONFIDENCE LONG entry + Trailing Stop on {target}.")
                  except Exception as alp_e:
                      logger.error(f"Failed to place live order: {alp_e}")
                      
@@ -194,19 +203,22 @@ def run_single_cycle():
                          side=OrderSide.SELL,
                          time_in_force=TimeInForce.DAY
                      )
-                     client.submit_order(order_data=order_req)
-                     logger.success(f"Successfully SHORTED {target} to profit from immediate downside.")
-                     
-                     # Submitting server-side Trailing Stop on the BUY side for Shorts
-                     stop_req = TrailingStopOrderRequest(
-                         symbol=target,
-                         qty=5,
-                         side=OrderSide.BUY,
-                         time_in_force=TimeInForce.GTC,
-                         trail_percent=2.0
-                     )
-                     client.submit_order(order_data=stop_req)
-                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for SHORT {target}.")
+                     if client:
+                         client.submit_order(order_data=order_req)
+                         logger.success(f"Successfully SHORTED {target} to profit from immediate downside.")
+                         
+                         # Submitting server-side Trailing Stop on the BUY side for Shorts
+                         stop_req = TrailingStopOrderRequest(
+                             symbol=target,
+                             qty=5,
+                             side=OrderSide.BUY,
+                             time_in_force=TimeInForce.GTC,
+                             trail_percent=2.0
+                         )
+                         client.submit_order(order_data=stop_req)
+                         logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for SHORT {target}.")
+                     else:
+                         logger.info(f"Dry-Run: Bypassed HIGH-CONFIDENCE SHORT entry + Trailing Stop on {target}.")
                  except Exception as alp_e:
                      # Alpaca gracefully rejects non-shortable / hard-to-borrow assets
                      logger.error(f"Failed to short {target} (Asset may be hard to borrow): {alp_e}")
