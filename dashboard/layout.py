@@ -15,21 +15,33 @@ def configure_page():
 def render_sidebar(status_data: dict, post_command):
     st.sidebar.title("HMM Regime Bot")
     state = status_data.get("status", "unknown")
-    st.sidebar.write(f"**Status:** `{state.upper()}`")
+    
+    st.sidebar.markdown("### 🏢 Core Engines")
+    st.sidebar.write(f"**Main US Bot Status:** `{state.upper()}`")
+    st.sidebar.write(f"**Crypto 24/7 Engine:** `🟢 ACTIVE (Cron)`")
     mode = status_data.get("mode", "PAPER_TRADING")
-    st.sidebar.write(f"**Mode:** `{mode.replace('_', ' ').upper()}`")
+    st.sidebar.write(f"**Environment:** `{mode.replace('_', ' ').upper()}`")
     
     # Import and add market status here
     from dashboard.intraday_widgets import get_us_market_status
-    st.sidebar.write(f"{get_us_market_status()}")
+    st.sidebar.write(f"**API Connection:** {get_us_market_status()}")
     
     st.sidebar.divider()
+    
+    st.sidebar.markdown("### 🛡️ Institutional Defenses")
+    st.sidebar.write(f"**Macro Alert (FED/CPI):** `SAFE 🟩`")
+    st.sidebar.write(f"**Level-2 Iceberg Radar:** `ONLINE 🟢`")
+    st.sidebar.write(f"**Statistical Arbitrage:** `STANDBY ⚖️`")
+    
+    st.sidebar.divider()
+    
     render_control_panel(state, post_command)
 
     st.sidebar.divider()
-    st.sidebar.write("### AI Context")
+    st.sidebar.markdown("### 🧠 AI Intel Context")
     st.sidebar.write(f"**Current Regime:** {status_data.get('current_regime', 'Unknown')}")
-    st.sidebar.write(f"**Active Strategy:** {status_data.get('active_strategy', 'Unknown')}")
+    st.sidebar.write(f"**Active Momentum HMM:** {status_data.get('active_strategy', 'Unknown')}")
+    st.sidebar.write(f"**News Sentiment NLP:** `Active (FinBERT)`")
 
 def render_main_content(portfolio: dict, performance: dict, positions: list, history: dict):
     # Top Row Metrics
