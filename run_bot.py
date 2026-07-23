@@ -65,6 +65,29 @@ def run_single_cycle():
         client = TradingClient(api_key, sec_key, paper=True)
         data_client = StockHistoricalDataClient(api_key, sec_key)
         
+        # 2A. Statistical Arbitrage (Pairs Trading)
+        # Attempt to grab pure quantitative pair divergences independent of ML logic
+        try:
+             from ai.stat_arb import StatArbAgent
+             arb_agent = StatArbAgent()
+             arb_signals = arb_agent.generate_arbitrage_signals()
+             
+             for signal in arb_signals:
+                 s_target = signal["short_target"]
+                 l_target = signal["long_target"]
+                 logger.info(f"Executing Stat-Arb Linked Trade: SHORT {s_target} + LONG {l_target}")
+                 
+                 # Issue Dual Route
+                 s_order = MarketOrderRequest(symbol=s_target, qty=5, side=OrderSide.SELL, time_in_force=TimeInForce.DAY)
+                 l_order = MarketOrderRequest(symbol=l_target, qty=5, side=OrderSide.BUY, time_in_force=TimeInForce.DAY)
+                 
+                 client.submit_order(order_data=s_order)
+                 client.submit_order(order_data=l_order)
+                 logger.success(f"Stat-Arb executed cleanly for {signal['pair_id']}")
+        except Exception as arb_e:
+             logger.warning(f"Stat-Arb submodule bypassed cleanly: {arb_e}")
+             
+        # 2B. Execute PPO Momentum directional trades via ML 
         for target in top_targets:
              logger.info(f"Analyzing {target} via PPO Model state...")
              # Generate a mock state matching observation space (Returns, Vol, Spread, Pos, Regime, BalRatio)
