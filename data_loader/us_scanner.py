@@ -11,13 +11,14 @@ class USIntradayScanner:
     
     def __init__(self, symbols_list: list[str] | None = None):
         if not symbols_list:
-            # Expanded to 50 High-Volume companies (Tech, Finance, Crypto-proxies, Retail, Energy)
+            # Expanded to 60 High-Volume companies (Tech, Finance, Crypto-proxies, Retail, Energy, Telecom)
             self.symbols = [
                 "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "NFLX", "QQQ",
                 "PLTR", "SOFI", "COIN", "INTC", "ARM", "BAC", "JPM", "DIS", "WMT", "SPY",
                 "UBER", "HOOD", "MARA", "RIOT", "CRM", "XOM", "CVX", "UNH", "JNJ", "PFE",
                 "MRK", "PEP", "KO", "MCD", "NKE", "SBUX", "BA", "CAT", "V", "MA",
-                "PYPL", "SQ", "CRWD", "SNOW", "BABA", "MSTR", "GME", "AMC", "SMCI", "AVGO"
+                "PYPL", "SQ", "CRWD", "SNOW", "BABA", "MSTR", "GME", "AMC", "SMCI", "AVGO",
+                "CSCO", "ORCL", "IBM", "ABT", "TMO", "COST", "HD", "PG", "TMUS", "VZ"
             ]
         else:
             self.symbols = symbols_list
