@@ -2,9 +2,9 @@ name: 24/7 Crypto Trading Bot Cron
 
 on:
   schedule:
-    # Intraday 24/7 trading: Evaluate every 15 minutes continuously
+    # Intraday 24/7 trading: Evaluate every 5 minutes continuously
     # No time bounds, no day bounds (0-6 meaning Sun-Sat)
-    - cron: '*/15 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI for testing
 
 jobs:
