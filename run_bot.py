@@ -83,8 +83,20 @@ def run_single_cycle():
                      logger.success(f"Successfully placed order for {target} guided by RL.")
                  except Exception as alp_e:
                      logger.error(f"Failed to place live order: {alp_e}")
-             elif action[0] < -0.1:
-                 logger.info(f"RL Agent Confirmed SHORT/SELL action for {target}. (Skipping Shorting logic for now).")
+             elif action[0] < -0.1: # Confidence threshold for SHORT (Bear Signal)
+                 logger.warning(f"RL Agent Confirmed SHORT/SELL action ({-action[0]:.2f} conviction) for {target}. Preparing to Short Sell.")
+                 try:
+                     order_req = MarketOrderRequest(
+                         symbol=target,
+                         qty=5, 
+                         side=OrderSide.SELL,
+                         time_in_force=TimeInForce.DAY
+                     )
+                     client.submit_order(order_data=order_req)
+                     logger.success(f"Successfully SHORTED {target} to profit from immediate downside.")
+                 except Exception as alp_e:
+                     # Alpaca gracefully rejects non-shortable / hard-to-borrow assets
+                     logger.error(f"Failed to short {target} (Asset may be hard to borrow): {alp_e}")
              else:
                  logger.info(f"RL Agent recommends HOLD (No Action) for {target}.")
         
