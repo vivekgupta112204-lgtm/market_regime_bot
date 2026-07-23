@@ -7,7 +7,7 @@ from loguru import logger
 import numpy as np
 
 class USIntradayScanner:
-    """Scans highly liquid US Mega-caps using a 7-Factor Quantitative Filter Pipeline."""
+    """Scans highly liquid US Mega-caps using a 12-Factor Institutional Quantitative Alpha Pipeline."""
     
     def __init__(self, symbols_list: list[str] | None = None):
         if not symbols_list:
@@ -79,9 +79,97 @@ class USIntradayScanner:
         atr = tr.rolling(window=period).mean()
         return float(atr.iloc[-1])
 
+    def _compute_obv_divergence(self, close: pd.Series, volume: pd.Series) -> str:
+        """Detects On-Balance Volume (OBV) Divergence — hidden institutional accumulation/distribution."""
+        obv = (np.sign(close.diff()) * volume).fillna(0).cumsum()
+        
+        # Compare last 20 bars: if price making higher highs but OBV making lower highs = BEARISH divergence
+        price_slope = float(close.iloc[-1] - close.iloc[-20]) if len(close) >= 20 else 0.0
+        obv_slope = float(obv.iloc[-1] - obv.iloc[-20]) if len(obv) >= 20 else 0.0
+        
+        if price_slope > 0 and obv_slope < 0:
+            return "BEARISH_DIV"  # Price up, volume down = smart money exiting
+        elif price_slope < 0 and obv_slope > 0:
+            return "BULLISH_DIV"  # Price down, volume up = smart money accumulating
+        elif price_slope > 0 and obv_slope > 0:
+            return "CONFIRMED_UP"  # Both agree = strong trend
+        else:
+            return "NEUTRAL"
+
+    def _compute_fibonacci_zone(self, close: pd.Series) -> str:
+        """Identifies current price position relative to Fibonacci Retracement levels."""
+        recent_high = float(close.rolling(50).max().iloc[-1])
+        recent_low = float(close.rolling(50).min().iloc[-1])
+        current = float(close.iloc[-1])
+        
+        fib_range = recent_high - recent_low
+        if fib_range < 0.01:
+            return "FLAT"
+        
+        # Key Fibonacci levels
+        fib_618 = recent_low + 0.618 * fib_range  # Golden Ratio
+        fib_500 = recent_low + 0.500 * fib_range
+        fib_382 = recent_low + 0.382 * fib_range
+        
+        if current >= fib_618:
+            return "ABOVE_GOLDEN"  # Above 61.8% = strong breakout territory
+        elif current >= fib_500:
+            return "ABOVE_50"
+        elif current >= fib_382:
+            return "RETRACEMENT_ZONE"  # Dangerous retracement area
+        else:
+            return "DEEP_PULLBACK"
+
+    def _compute_adx(self, data: pd.DataFrame, period: int = 14) -> float:
+        """Computes Average Directional Index (ADX) to measure trend STRENGTH (not direction)."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        plus_dm = high.diff()
+        minus_dm = -low.diff()
+        plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0), 0.0)
+        minus_dm = minus_dm.where((minus_dm > plus_dm) & (minus_dm > 0), 0.0)
+        
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        
+        atr = tr.rolling(window=period).mean()
+        plus_di = 100 * (plus_dm.rolling(window=period).mean() / (atr + 1e-10))
+        minus_di = 100 * (minus_dm.rolling(window=period).mean() / (atr + 1e-10))
+        
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)
+        adx = dx.rolling(window=period).mean()
+        return float(adx.iloc[-1])
+
+    def _compute_stochastic(self, data: pd.DataFrame, k_period: int = 14, d_period: int = 3) -> tuple:
+        """Computes Stochastic Oscillator (%K, %D) for overbought/oversold momentum."""
+        high = data['High'].rolling(k_period).max()
+        low = data['Low'].rolling(k_period).min()
+        close = data['Close']
+        
+        k_pct = 100 * (close - low) / (high - low + 1e-10)
+        d_pct = k_pct.rolling(d_period).mean()
+        return float(k_pct.iloc[-1]), float(d_pct.iloc[-1])
+
+    def _compute_smart_money_flow(self, data: pd.DataFrame) -> float:
+        """Computes Chaikin Money Flow (CMF) — detects institutional accumulation vs distribution."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        volume = data['Volume']
+        
+        mfm = ((close - low) - (high - close)) / (high - low + 1e-10)  # Money Flow Multiplier
+        mfv = mfm * volume  # Money Flow Volume
+        
+        cmf = mfv.rolling(20).sum() / (volume.rolling(20).sum() + 1e-10)
+        return float(cmf.iloc[-1])
+
     def scan_morning_opportunities(self) -> list[str]:
-        """Runs the 7-Factor Quantitative Scan for high-conviction momentum entries."""
-        logger.info("⚡ Initiating Phase-2 Multi-Factor US Quantitative Scan...")
+        """Runs the 12-Factor Institutional Quantitative Scan for high-conviction alpha entries."""
+        logger.info("⚡ Initiating Phase-3 INSTITUTIONAL 12-Factor Quantitative Alpha Scan...")
         scored_picks = []
         
         try:
@@ -200,6 +288,71 @@ class USIntradayScanner:
                     # Append with composite score
                     scored_picks.append((symbol, round(score, 2), round(rsi, 1), macd_signal, bb_pos, round(rvol, 2)))
                     
+                    # ═══════════════════════════════════════════
+                    # FACTOR 8: OBV Divergence (Smart Money Detection)
+                    # ═══════════════════════════════════════════
+                    obv_signal = self._compute_obv_divergence(close, vol)
+                    
+                    if obv_signal == "CONFIRMED_UP":
+                        score += 2.0  # Price + Volume both confirming = strongest signal
+                    elif obv_signal == "BULLISH_DIV":
+                        score += 1.5  # Hidden accumulation
+                    elif obv_signal == "BEARISH_DIV":
+                        score -= 2.0  # Smart money exiting = deadly trap
+                    
+                    # ═══════════════════════════════════════════
+                    # FACTOR 9: Fibonacci Golden Ratio Position
+                    # ═══════════════════════════════════════════
+                    fib_zone = self._compute_fibonacci_zone(close)
+                    
+                    if fib_zone == "ABOVE_GOLDEN":
+                        score += 2.0  # Above 61.8% = breakout territory
+                    elif fib_zone == "ABOVE_50":
+                        score += 1.0
+                    elif fib_zone == "DEEP_PULLBACK":
+                        score -= 1.0  # Too deep = trend may be broken
+                    
+                    # ═══════════════════════════════════════════
+                    # FACTOR 10: ADX Trend Strength
+                    # ═══════════════════════════════════════════
+                    adx = self._compute_adx(data)
+                    
+                    if adx > 40:
+                        score += 2.0  # Ultra-strong trend (institutional momentum)
+                    elif adx > 25:
+                        score += 1.0  # Healthy trending market
+                    elif adx < 15:
+                        score -= 1.0  # No trend = choppy noise (scalping death zone)
+                    
+                    # ═══════════════════════════════════════════
+                    # FACTOR 11: Stochastic Oscillator Momentum
+                    # ═══════════════════════════════════════════
+                    stoch_k, stoch_d = self._compute_stochastic(data)
+                    
+                    if stoch_k > stoch_d and stoch_k < 80:
+                        score += 1.0  # Bullish crossover, not overbought
+                    elif stoch_k > 80 and stoch_d > 80:
+                        score -= 0.5  # Both overbought = reversal risk
+                    elif stoch_k < 20:
+                        score -= 0.5  # Oversold, not ideal for long momentum
+                    
+                    # ═══════════════════════════════════════════
+                    # FACTOR 12: Chaikin Money Flow (Institutional Accumulation)
+                    # ═══════════════════════════════════════════
+                    cmf = self._compute_smart_money_flow(data)
+                    
+                    if cmf > 0.15:
+                        score += 2.0  # Heavy institutional accumulation
+                    elif cmf > 0.05:
+                        score += 1.0  # Moderate inflow
+                    elif cmf < -0.15:
+                        score -= 2.0  # Heavy institutional distribution (dumping)
+                    elif cmf < -0.05:
+                        score -= 1.0  # Moderate outflow
+                    
+                    # Re-append with updated full score (overwrite previous)
+                    scored_picks[-1] = (symbol, round(score, 2), round(rsi, 1), macd_signal, bb_pos, round(rvol, 2))
+                    
                 except Exception as e:
                     pass
         except Exception as e:
@@ -209,14 +362,14 @@ class USIntradayScanner:
         scored_picks.sort(key=lambda x: x[1], reverse=True)
         
         # Log the leaderboard
-        logger.info("═══════════════════════════════════════════")
-        logger.info("  📊 MULTI-FACTOR QUANTITATIVE LEADERBOARD")
-        logger.info("═══════════════════════════════════════════")
+        logger.info("═══════════════════════════════════════════════════════════════")
+        logger.info("  📊 12-FACTOR INSTITUTIONAL QUANTITATIVE ALPHA LEADERBOARD")
+        logger.info("═══════════════════════════════════════════════════════════════")
         for rank, (sym, sc, rsi, macd, bb, rv) in enumerate(scored_picks[:20], 1):
             logger.info(f"  #{rank:02d} | {sym:6s} | Score: {sc:5.1f} | RSI: {rsi:5.1f} | MACD: {macd:15s} | BB: {bb:16s} | RVol: {rv:.1f}x")
-        logger.info("═══════════════════════════════════════════")
+        logger.info("═══════════════════════════════════════════════════════════════")
         
-        logger.info(f"Phase-2 Scan Complete. {len(scored_picks)} assets qualified from 7-Factor pipeline.")
+        logger.info(f"Phase-3 Scan Complete. {len(scored_picks)} assets qualified from 12-Factor Institutional pipeline.")
         
         # Return only the top 15 symbols sorted by score
         return [s[0] for s in scored_picks[:15]]
