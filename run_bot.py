@@ -104,6 +104,41 @@ def run_single_cycle():
         except Exception as m_e:
              logger.warning(f"MacroAgent bypass: {m_e}")
         
+        # 0B. VIX Fear Index Defense Shield 🌡️
+        vix_action = "PROCEED"
+        try:
+             from ai.risk_shield import VIXDefenseShield
+             vix_result = VIXDefenseShield().scan_fear_index()
+             vix_action = vix_result["action"]
+             
+             if vix_action == "LOCKDOWN":
+                 logger.critical("🔴 VIX CRASH LOCKDOWN: Aborting ALL new positions. Capital preservation mode.")
+                 macro_danger = True  # Piggyback on existing macro flag
+             elif vix_action == "HALF_SIZE":
+                 logger.warning("🟠 VIX FEAR MODE: All position sizes will be reduced by 50%.")
+        except Exception as vix_e:
+             logger.warning(f"VIX Shield bypass: {vix_e}")
+        
+        # 0C. Cross-Asset Correlation Breakdown Detection 🔗
+        try:
+             from ai.risk_shield import VIXDefenseShield as CorrelationScanner
+             if CorrelationScanner().detect_correlation_breakdown():
+                 logger.critical("⚠️ STRUCTURAL CORRELATION BREAKDOWN DETECTED! Reducing risk exposure.")
+                 if vix_action != "LOCKDOWN":
+                     vix_action = "HALF_SIZE"
+        except Exception as corr_e:
+             logger.warning(f"Correlation scanner bypass: {corr_e}")
+        
+        # 0D. Portfolio Concentration Limiter 📊
+        active_positions = []
+        try:
+             from ai.risk_shield import PortfolioExposureLimiter
+             positions = client.get_all_positions()
+             active_positions = [p.symbol for p in positions]
+             logger.info(f"📊 Active portfolio exposure: {len(active_positions)} positions across sectors.")
+        except Exception as pos_e:
+             logger.warning(f"Exposure limiter bypass: {pos_e}")
+        
         # 1. Statistical Arbitrage (Pairs Trading)
         # Attempt to grab pure quantitative pair divergences independent of ML logic
         try:
@@ -200,6 +235,21 @@ def run_single_cycle():
                  if macro_danger:
                      logger.warning(f"Macro (FED) VETO on {target}. No new Directional LONG Bets authorized during high volatility.")
                      continue
+                 
+                 # Portfolio Concentration Gate
+                 try:
+                     conc_check = PortfolioExposureLimiter().check_concentration_risk(active_positions, target)
+                     if not conc_check["allowed"]:
+                         logger.warning(f"🚫 CONCENTRATION VETO: {conc_check['reason']}")
+                         continue
+                 except Exception:
+                     pass
+                 
+                 # VIX-Adjusted Position Sizing
+                 trade_qty = 5
+                 if vix_action == "HALF_SIZE":
+                     trade_qty = 2
+                     logger.info(f"📉 VIX Fear: Reducing {target} position from 5 → {trade_qty} shares.")
                      
                  if imbalance_long > 5.0:
                      logger.warning(f"Synthetic L2 Filter ABORTED long trade on {target}. Massive Sell Wall Detected (Ratio: {imbalance_long:.1f})")
