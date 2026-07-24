@@ -65,13 +65,29 @@ class SwarmDebateEngine:
         
         import concurrent.futures
         
-        import random
-        # Anti-Overfitting: Agent Dropout Mechanism (20% chance to drop 1-2 non-Risk agents)
-        dropout_active = random.random() < 0.20
+        import json
+        import os
+        
+        # Anti-Overfitting: Deterministic Track Record (Rolling Performance Masking)
+        # Instead of random dropout, we penalize the lowest-performing agent.
         agents_to_drop = []
-        if dropout_active:
-            agents_to_drop = random.sample(["BULL", "BEAR", "CONTRARIAN"], random.randint(1, 2))
-            logger.info(f"🌀 AGENT DROPOUT ACTIVE: Masking {agents_to_drop} to force Judge generalization.")
+        track_record_path = "logs/agent_track_record.json"
+        if os.path.exists(track_record_path):
+            try:
+                with open(track_record_path, "r") as f:
+                    track_records = json.load(f)
+                # Sort agents by win-rate and mask the worst performer if it falls below 40% accuracy
+                sorted_agents = sorted(track_records.items(), key=lambda x: x[1])
+                worst_agent, worst_score = sorted_agents[0]
+                if worst_score < 0.40:
+                    agents_to_drop.append(worst_agent.upper())
+                    logger.warning(f"📉 MASKING {worst_agent.upper()}: Rolling Win-Rate is {worst_score:.2f} (Below 0.40 Threshold).")
+            except Exception:
+                pass
+        else:
+            # First run mock: penalize contrarian to test generalization
+            agents_to_drop = ["CONTRARIAN"]
+            logger.info("Initializing track records. Deterministically masking CONTRARIAN for initial robustness test.")
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             risk_prompt_init = f"You are Chief Risk Officer. A {ppo_signal} trade on {target} is proposed. {history_ctx} Analyze risk. End with 'RISK_SCORE: X/10'."

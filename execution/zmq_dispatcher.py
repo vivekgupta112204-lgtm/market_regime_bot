@@ -4,24 +4,29 @@ from loguru import logger
 
 class ZMQDispatcher:
     """
-    Python Brain Publisher (PUB).
-    Dispatches ML-driven trade signals to the Rust Execution Engine over ZeroMQ.
+    Python Brain Requester (REQ).
+    Strictly dispatches trade signals to Rust Execution Engine using REQ/REP pattern 
+    with Acknowledgments (ACKs) to prevent any microsecond packet drop.
     """
     def __init__(self, port: int = 5555):
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.PUB)
-        self.bind_url = f"tcp://127.0.0.1:{port}"
+        self.socket = self.context.socket(zmq.REQ)
+        # Enforce 2-second timeout to prevent Python from freezing if Rust goes down
+        self.socket.setsockopt(zmq.RCVTIMEO, 2000) 
+        self.socket.setsockopt(zmq.LINGER, 0)
+        
+        self.endpoint = f"tcp://127.0.0.1:{port}"
         
         try:
-            self.socket.bind(self.bind_url)
-            logger.info(f"🧠 Python Brain ZMQ Dispatcher bound to {self.bind_url}")
+            self.socket.connect(self.endpoint)
+            logger.info(f"🧠 Python Brain ZMQ [REQ] Connected to {self.endpoint}")
         except Exception as e:
-            logger.error(f"ZMQ Bind Failed: {e}. Is port {port} already in use?")
+            logger.error(f"ZMQ Connect Failed: {e}")
             raise e
 
     def publish_trade(self, symbol: str, side: str, qty: float):
         """
-        Sends an ultra-lightweight Protobuf/JSON schema to the Rust 'Hands'.
+        Sends an ultra-lightweight JSON payload and waits for Rust ACK.
         """
         payload = {
             "symbol": symbol,
@@ -30,12 +35,22 @@ class ZMQDispatcher:
         }
         
         try:
-            # We prefix the topic 'TRADE' for ZMQ SUB filtering on the Rust side
-            message = f"TRADE {json.dumps(payload)}"
+            # We enforce REQ/REP packet delivery
+            message = json.dumps(payload)
             self.socket.send_string(message)
-            logger.success(f"⚡ Brain Dispatched Signal -> Rust Hands: {payload}")
+            logger.success(f"⚡ Brain Sent Strict Signal -> Rust Hands: {payload}")
+            
+            # Wait for strict acknowledgment from Rust
+            reply = self.socket.recv_string()
+            logger.info(f"🛡️ RUST ACK RECEIVED: {reply}")
+            return True
+            
+        except zmq.error.Again:
+            logger.error(f"❌ CRITICAL: Rust Execution Engine did not ACK in 2000ms! Packet unconfirmed.")
+            return False
         except Exception as e:
-            logger.error(f"Failed to publish ZMQ trade signal: {e}")
+            logger.error(f"❌ Failed to dispatch ZMQ trade signal: {e}")
+            return False
 
 if __name__ == "__main__":
     # Test dispatch
