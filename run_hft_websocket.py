@@ -123,17 +123,33 @@ class UltraLowLatencyHFT:
                      self.tick_window.clear()
 
     async def _execute_scalp(self, direction: str):
-        """Fires 0-latency executions directly to the pairing engine and evaluates Daily PnL."""
+        """Fires 0-latency executions. Implements Advanced Synthetic Inverse ETF Routing for Shorting."""
         self.trade_lock = True
         try:
+             # Advanced Short Selling Logic (Bypass Hard-to-Borrow & Margin issues)
+             exec_symbol = self.symbol
+             exec_side = OrderSide.BUY if direction == "BUY" else OrderSide.SELL
+             
+             # Synthetic Short Mapping (Index -> Bear ETF)
+             inverse_etf_map = {
+                 "SPY": "SH",   # ProShares Short S&P500
+                 "QQQ": "PSQ",  # ProShares Short QQQ
+                 "IWM": "RWM"   # ProShares Short Russell 2000
+             }
+             
+             if direction == "SELL" and self.symbol in inverse_etf_map:
+                 exec_symbol = inverse_etf_map[self.symbol]
+                 exec_side = OrderSide.BUY # We BUY the Inverse ETF instead of shorting the main index!
+                 logger.warning(f"📉 ADVANCED SHORT: Converted 'Short {self.symbol}' into 'Buy {exec_symbol}'. Bypassing Broker Margin & HTB Restrictions!")
+
              order = MarketOrderRequest(
-                 symbol=self.symbol,
+                 symbol=exec_symbol,
                  qty=10,  # Controlled qty for $50/day target pacing
-                 side=OrderSide.BUY if direction == "BUY" else OrderSide.SELL,
+                 side=exec_side,
                  time_in_force=TimeInForce.DAY
              )
              self.client.submit_order(order_data=order)
-             logger.success(f"HFT Scalp SUCCESS: {direction} 10 shares of {self.symbol}")
+             logger.success(f"HFT Scalp SUCCESS: {'BOUGHT Inverse ETF' if exec_symbol != self.symbol else direction} 10 shares of {exec_symbol}")
              
              # ---- POST TRADE TARGET CHECK (Does not block tick speed) ----
              account = self.client.get_account()
