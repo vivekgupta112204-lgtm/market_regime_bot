@@ -44,7 +44,7 @@ SEC_KEY = os.getenv("ALPACA_SECRET_KEY")
 logger.add("logs/hft_logs.txt", rotation="50 MB")
 
 class UltraLowLatencyHFT:
-    """Stateful High-Frequency Scalping Engine with L2 Orderbook Analysis."""
+    """Stateful High-Frequency Scalping Engine with L2 Orderbook Analysis & Target Limits."""
     def __init__(self, target_symbol: str = "SPY"):
         self.symbol = target_symbol
         
@@ -55,6 +55,11 @@ class UltraLowLatencyHFT:
         
         # Lock to prevent double execution within micro-seconds
         self.trade_lock = False
+        
+        # Institutional Limits ($50/day Target)
+        self.trading_allowed = True
+        self.daily_target_usd = 50.0
+        self.daily_loss_limit_usd = -25.0
         
         if not API_KEY or not SEC_KEY:
             logger.critical("Alpaca API keys missing! HFT Engine requires valid production connection.")
@@ -79,8 +84,8 @@ class UltraLowLatencyHFT:
 
     async def _trade_handler(self, data):
         """Asynchronous callback fired every sub-second on a completed tick/trade."""
-        if self.trade_lock:
-            return  # Prevent overlapping scalps
+        if self.trade_lock or not self.trading_allowed:
+            return  # Prevent overlapping scalps or trading if target is hit
             
         price = data.price
         
@@ -118,17 +123,30 @@ class UltraLowLatencyHFT:
                      self.tick_window.clear()
 
     async def _execute_scalp(self, direction: str):
-        """Fires 0-latency executions directly to the pairing engine."""
+        """Fires 0-latency executions directly to the pairing engine and evaluates Daily PnL."""
         self.trade_lock = True
         try:
              order = MarketOrderRequest(
                  symbol=self.symbol,
-                 qty=10,
+                 qty=10,  # Controlled qty for $50/day target pacing
                  side=OrderSide.BUY if direction == "BUY" else OrderSide.SELL,
                  time_in_force=TimeInForce.DAY
              )
              self.client.submit_order(order_data=order)
              logger.success(f"HFT Scalp SUCCESS: {direction} 10 shares of {self.symbol}")
+             
+             # ---- POST TRADE TARGET CHECK (Does not block tick speed) ----
+             account = self.client.get_account()
+             daily_pnl = float(account.equity) - float(account.last_equity)
+             logger.info(f"📊 LIVE PNL UPDATE: Today's Profit is ${daily_pnl:.2f}")
+             
+             if daily_pnl >= self.daily_target_usd:
+                 logger.success(f"🎯 INSTITUTIONAL CAP REACHED: Profit (+${daily_pnl:.2f}) exceeds ${self.daily_target_usd}. System going into Stand-by till tomorrow! 🚀")
+                 self.trading_allowed = False
+             elif daily_pnl <= self.daily_loss_limit_usd:
+                 logger.critical(f"🛑 RISK LIMIT REACHED: Loss (-${abs(daily_pnl):.2f}) exceeds safety net. HFT System SHUT DOWN to protect capital!")
+                 self.trading_allowed = False
+                 
         except Exception as e:
              logger.error(f"HFT Execution failed: {e}")
         finally:
