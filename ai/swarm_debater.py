@@ -55,82 +55,51 @@ class SwarmDebateEngine:
     def conduct_debate(self, target: str, ppo_signal: str) -> str:
         """
         Conducts a 5-Agent adversarial debate with confidence-weighted voting.
-        Returns [APPROVED] or [VETO].
+        Executes concurrently to prevent blocking the main intraday tick cycle.
         """
         logger.info(f"⚖️ SWARM COUNCIL ACTIVATED: 5-Agent Adversarial Debate opened for {ppo_signal} on {target}")
-        
         history_ctx = self._build_history_context()
         
-        # ═══════════════════════════════════════════
-        # AGENT 1: THE BULL (Aggressive Momentum Buyer)
-        # ═══════════════════════════════════════════
-        bull_prompt = (
-            f"You are an aggressive Wall Street momentum trader with 20 years of experience. "
-            f"The PPO neural network signals {ppo_signal} on {target}. "
-            f"{history_ctx}\n"
-            f"Give your argument in 2 sentences why this trade WILL print money. "
-            f"Then on a new line write 'CONFIDENCE: X%' where X is 0-100."
-        )
-        bull_reply = self._query_llm(bull_prompt)
+        bull_prompt = f"You are an aggressive Wall Street momentum trader... PPO signals {ppo_signal} on {target}. {history_ctx} 2 sentences. End with 'CONFIDENCE: X%' where X is 0-100."
+        bear_prompt = f"You are a legendary short seller... PPO signals {ppo_signal} on {target}. {history_ctx} 2 sentences. End with 'CONFIDENCE: X%' where X is 0-100."
+        
+        import concurrent.futures
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            # First round: Bull, Bear, and initial Risk Assessment can run perfectly parallel
+            risk_prompt_init = f"You are Chief Risk Officer. A {ppo_signal} trade on {target} is proposed. {history_ctx} Analyze risk. End with 'RISK_SCORE: X/10'."
+            
+            future_bull = executor.submit(self._query_llm, bull_prompt)
+            future_bear = executor.submit(self._query_llm, bear_prompt)
+            future_risk = executor.submit(self._query_llm, risk_prompt_init)
+            
+            bull_reply = future_bull.result()
+            bear_reply = future_bear.result()
+            risk_reply = future_risk.result()
+
         bull_conf = self._extract_confidence(bull_reply)
-        logger.info(f"📈 [AGENT BULL] (Confidence: {bull_conf}%): '{bull_reply}'")
-        
-        # ═══════════════════════════════════════════
-        # AGENT 2: THE BEAR (Aggressive Short Seller)
-        # ═══════════════════════════════════════════
-        bear_prompt = (
-            f"You are a legendary short seller who profited from the 2008 crash. "
-            f"The PPO model says {ppo_signal} on {target}. The Bull argues: '{bull_reply[:150]}'. "
-            f"Give your counter-argument in 2 sentences why this trade will DESTROY capital. "
-            f"Then on a new line write 'CONFIDENCE: X%' where X is 0-100."
-        )
-        bear_reply = self._query_llm(bear_prompt)
         bear_conf = self._extract_confidence(bear_reply)
-        logger.info(f"📉 [AGENT BEAR] (Confidence: {bear_conf}%): '{bear_reply}'")
-        
-        # ═══════════════════════════════════════════
-        # AGENT 3: THE RISK ANALYST (Capital Preservation)
-        # ═══════════════════════════════════════════
-        risk_prompt = (
-            f"You are the Chief Risk Officer of a $10 billion hedge fund. "
-            f"Your ONLY job is protecting capital. A {ppo_signal} trade on {target} is proposed. "
-            f"Bull says: '{bull_reply[:100]}'. Bear says: '{bear_reply[:100]}'. "
-            f"Analyze the risk/reward ratio in 2 sentences. Focus on maximum possible loss. "
-            f"Then on a new line write 'RISK_SCORE: X/10' where 1=safe, 10=extremely dangerous."
-        )
-        risk_reply = self._query_llm(risk_prompt)
         risk_score = self._extract_risk_score(risk_reply)
-        logger.info(f"🛡️ [AGENT RISK] (Risk: {risk_score}/10): '{risk_reply}'")
         
-        # ═══════════════════════════════════════════
-        # AGENT 4: THE CONTRARIAN (Devil's Advocate)
-        # ═══════════════════════════════════════════
-        # Contrarian ALWAYS argues opposite of the majority
+        logger.info(f"📈 [AGENT BULL] (Confidence: {bull_conf}%): '{bull_reply[:100]}...'")
+        logger.info(f"📉 [AGENT BEAR] (Confidence: {bear_conf}%): '{bear_reply[:100]}...'")
+        logger.info(f"🛡️ [AGENT RISK] (Risk: {risk_score}/10): '{risk_reply[:100]}...'")
+        
         majority_is_bullish = bull_conf > bear_conf
         contrarian_stance = "against" if majority_is_bullish else "for"
         
         contrarian_prompt = (
-            f"You are a contrarian hedge fund manager who ALWAYS bets against the crowd. "
-            f"The majority of agents are currently leaning {'bullish' if majority_is_bullish else 'bearish'} on {target}. "
-            f"Give exactly 1 sentence arguing {contrarian_stance} the {ppo_signal} trade. "
-            f"Then write 'CONVICTION: X%' where X is how strongly you disagree with the majority."
+            f"You are a contrarian manager. Majority is {'bullish' if majority_is_bullish else 'bearish'} on {target}. "
+            f"Argue {contrarian_stance} the {ppo_signal} trade in 1 sentence. Then write 'CONVICTION: X%'."
         )
         contrarian_reply = self._query_llm(contrarian_prompt)
         contrarian_conf = self._extract_confidence(contrarian_reply, keyword="CONVICTION")
-        logger.info(f"🔄 [AGENT CONTRARIAN]: '{contrarian_reply}'")
         
-        # ═══════════════════════════════════════════
-        # AGENT 5: THE SUPREME JUDGE (Weighted Final Verdict)
-        # ═══════════════════════════════════════════
         judge_prompt = (
-            f"You are the Supreme Quantitative Judge of a trading tribunal. "
-            f"A {ppo_signal} trade on {target} has been debated by 4 expert agents:\n"
-            f"- BULL (Confidence {bull_conf}%): '{bull_reply[:100]}'\n"
-            f"- BEAR (Confidence {bear_conf}%): '{bear_reply[:100]}'\n"
-            f"- RISK OFFICER (Risk Score {risk_score}/10): '{risk_reply[:100]}'\n"
-            f"- CONTRARIAN: '{contrarian_reply[:100]}'\n\n"
-            f"Rules: If Risk Score >= 7, you MUST veto. If Bull confidence > Bear by 30%+, lean approve. "
-            f"Output ONLY the word [APPROVED] or [VETO] followed by one sentence of reasoning."
+            f"You are the Supreme Judge. {ppo_signal} on {target}. \n"
+            f"BULL ({bull_conf}%): '{bull_reply[:50]}'\nBEAR ({bear_conf}%): '{bear_reply[:50]}'\n"
+            f"RISK ({risk_score}/10): '{risk_reply[:50]}'\nCONTRARIAN: '{contrarian_reply[:50]}'\n"
+            f"Rules: If Risk Score >= 7, you MUST veto. Output ONLY [APPROVED] or [VETO] followed by reasoning."
         )
         judge_reply = self._query_llm(judge_prompt)
         
@@ -195,13 +164,31 @@ class SwarmDebateEngine:
         return 5  # Default moderate risk
 
     def _query_llm(self, prompt: str) -> str:
-        """Helper to fetch completions from Gemini strictly for production."""
+        """Helper to fetch completions from Gemini strictly for production with timeout."""
         try:
-             response = self.client.models.generate_content(
-                 model='gemini-1.5-flash',
-                 contents=prompt,
-             )
-             return response.text.strip().replace('\n', ' ')
+             # Apply strict timeout/latency cap
+             import threading
+             response = None
+             
+             def _call():
+                 nonlocal response
+                 response = self.client.models.generate_content(
+                     model='gemini-1.5-flash',
+                     contents=prompt,
+                 )
+                 
+             t = threading.Thread(target=_call)
+             t.start()
+             t.join(timeout=8.0) # 8 second fallback timeout for latency safety
+             
+             if t.is_alive():
+                 logger.error("LLM API Call Timeout Exceeded (8s). Bailing out.")
+                 return "TIMEOUT_FALLBACK_RISK: SAFE VETO PREFERRED. CONFIDENCE: 0%. RISK_SCORE: 10/10."
+                 
+             if response:
+                 return response.text.strip().replace('\n', ' ')
+             return "ERROR_FALLBACK"
+             
         except Exception as e:
              logger.error(f"LLM API Call Failed: {e}")
-             raise e
+             return "ERROR_FALLBACK: SAFE VETO PREFERRED. CONFIDENCE: 0%. RISK_SCORE: 10/10."

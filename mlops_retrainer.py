@@ -37,10 +37,7 @@ def fetch_drift_data() -> pd.DataFrame:
     processed['Volatility'] = processed['Returns'].rolling(window=10).std()
     processed['Regime'] = np.where(processed['Returns'] > 0, 1.0, 0.0)
     
-    # Inject Synthetic NLP FinBERT Sentiment & L2 Backtesting Data for 8D Matrix
-    processed['NLP_Sentiment'] = np.random.uniform(-1, 1, len(processed))
-    processed['L2_Imbalance'] = np.random.uniform(0.1, 5.0, len(processed))
-    
+    # Strict adherence: Removing Synthetic NLP/L2 noise for honest 6D State Space Training
     return processed.dropna()
 
 def auto_heal_model():

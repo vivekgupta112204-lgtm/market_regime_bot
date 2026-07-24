@@ -118,28 +118,16 @@ class UltraLowLatencyHFT:
     async def _execute_scalp(self, direction: str, symbol: str):
         self.trade_lock = True
         try:
-             exec_symbol = symbol
              exec_side = OrderSide.BUY if direction == "BUY" else OrderSide.SELL
-             
-             inverse_etf_map = {
-                 "SPY": "SH",   
-                 "QQQ": "PSQ",  
-                 "IWM": "RWM"   
-             }
-             
-             if direction == "SELL" and symbol in inverse_etf_map:
-                 exec_symbol = inverse_etf_map[symbol]
-                 exec_side = OrderSide.BUY 
-                 logger.warning(f"📉 ADVANCED SHORT: Converted 'Short {symbol}' into 'Buy {exec_symbol}'. Bypassing Broker Margin Restrictions!")
 
              order = MarketOrderRequest(
-                 symbol=exec_symbol,
+                 symbol=symbol,
                  notional=100.0,  # Switch to $100 Fractional safe sizing across the 10-stock universe
                  side=exec_side,
                  time_in_force=TimeInForce.DAY
              )
              self.client.submit_order(order_data=order)
-             logger.success(f"HFT Scalp SUCCESS: {'BOUGHT Inverse ETF' if exec_symbol != symbol else direction} $100 of {exec_symbol}")
+             logger.success(f"HFT Scalp SUCCESS: {direction} $100 of {symbol}")
              
              account = self.client.get_account()
              daily_pnl = float(account.equity) - float(account.last_equity)

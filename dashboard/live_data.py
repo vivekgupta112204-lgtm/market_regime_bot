@@ -2,9 +2,14 @@
 
 import requests
 import streamlit as st
+import os
 
-API_BASE_URL = "http://localhost:8000"
-API_KEY = "secret_dashboard_key_123"
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+API_KEY = os.environ.get("DASHBOARD_API_KEY", "")
+
+if not API_KEY:
+    st.error("DASHBOARD_API_KEY is missing from environment. Dashboard secure connection will fail.")
+
 
 def _get(endpoint: str) -> dict:
     """Helper to fetch from the local API."""

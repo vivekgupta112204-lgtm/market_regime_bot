@@ -49,13 +49,16 @@ class DarkPoolRadar:
             total_call_sweep_volume = extreme_calls['volume'].sum()
             total_put_sweep_volume = extreme_puts['volume'].sum()
             
+            # DISCLAIMER: yfinance options data is delayed and thin.
+            # This radar cannot be used as an authoritative veto signal unless backed by real OPRA tape.
+            # Confidence is artificially capped at 0.3 (Low) so the master Swarm doesn't overfit to it.
             if total_call_sweep_volume > (total_put_sweep_volume * 1.5) and total_call_sweep_volume > 1000:
                  logger.success(f"WHALE DETECTED: Explosive CALL Sweeps on {symbol} (Vol: {total_call_sweep_volume})")
-                 return {"whale_sentiment": 1.0, "signal": "BULL_SWEEP", "confidence": 0.9}
+                 return {"whale_sentiment": 1.0, "signal": "BULL_SWEEP", "confidence": 0.3}
                  
             elif total_put_sweep_volume > (total_call_sweep_volume * 1.5) and total_put_sweep_volume > 1000:
                  logger.error(f"WHALE DETECTED: Explosive PUT Sweeps on {symbol} (Vol: {total_put_sweep_volume})")
-                 return {"whale_sentiment": -1.0, "signal": "BEAR_SWEEP", "confidence": 0.9}
+                 return {"whale_sentiment": -1.0, "signal": "BEAR_SWEEP", "confidence": 0.3}
             
             # If no massive sweeps detected or they cancel each other out
             return {"whale_sentiment": 0.0, "signal": "NEUTRAL", "confidence": 0.0}

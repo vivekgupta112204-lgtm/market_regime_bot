@@ -16,12 +16,22 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Trading Bot API Server...")
 
+import os
+
 app = FastAPI(title="HMM Trading Bot API", version="1.0.0", lifespan=lifespan)
 
 # Allow dashboard cross-origin requests
+dashboard_origin = os.environ.get("DASHBOARD_URL", "http://localhost:8501")
+allowed_origins = [dashboard_origin] if os.environ.get("ENV") != "development" else ["*"]
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from security.api_security import rate_limit_middleware
+
+app.add_middleware(BaseHTTPMiddleware, dispatch=rate_limit_middleware)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

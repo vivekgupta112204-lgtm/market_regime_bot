@@ -89,6 +89,18 @@ class StrategyManager:
         else:
             row = latest_data
             
+        # Confidence Floor Gate
+        import datetime # Import in case needed
+        if confidence < 0.60:
+            logger.warning(f"Regime {regime} predicted but dominant confidence ({confidence:.2f}) is below 0.60 floor. Forcing HOLD.")
+            ts = row.name if hasattr(row, 'name') and row.name else pd.Timestamp.utcnow()
+            return TradeSignal.create_hold(
+                timestamp=ts,
+                regime=regime,
+                strategy="ALL",
+                reason=f"Confidence {confidence:.2f} < 0.60 floor threshold.",
+            ).to_dict()
+            
         # 1. Route to appropriate strategy
         strat_key = self._map_regime_to_strategy_key(regime)
         active_strategy = self.strategies[strat_key]

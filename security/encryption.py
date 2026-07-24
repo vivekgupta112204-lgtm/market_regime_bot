@@ -20,8 +20,20 @@ class SystemEncryptor:
     """Safely encrypts API keys and secrets at rest using AES (via Fernet)."""
     
     def __init__(self, master_password: str | None = None):
-        self.salt = b'hmm_bot_default_salt'  # In production, salt should be securely stashed
-        pwd = master_password or os.getenv("HMM_MASTER_PW", "default_secure_vault_pw_992")
+        salt_file = "security/.vault_salt"
+        if os.path.exists(salt_file):
+            with open(salt_file, "rb") as f:
+                self.salt = f.read()
+        else:
+            self.salt = os.urandom(16)
+            os.makedirs(os.path.dirname(salt_file), exist_ok=True)
+            with open(salt_file, "wb") as f:
+                f.write(self.salt)
+        
+        pwd = master_password or os.getenv("HMM_MASTER_PW")
+        if not pwd:
+            raise RuntimeError("FATAL: HMM_MASTER_PW environment variable not set. Refusing to initialize encryptor.")
+            
         key = _generate_key_from_password(pwd, self.salt)
         self.fernet = Fernet(key)
 

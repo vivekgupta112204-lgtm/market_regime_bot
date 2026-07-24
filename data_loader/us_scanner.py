@@ -7,7 +7,7 @@ from loguru import logger
 import numpy as np
 
 class USIntradayScanner:
-    """Scans highly liquid US Mega-caps using a 12-Factor Institutional Quantitative Alpha Pipeline."""
+    """Scans highly liquid US Mega-caps using a 12-indicator composite scoring scanner."""
     
     def __init__(self, symbols_list: list[str] | None = None):
         if not symbols_list:
@@ -168,8 +168,8 @@ class USIntradayScanner:
         return float(cmf.iloc[-1])
 
     def scan_morning_opportunities(self) -> list[str]:
-        """Runs the 12-Factor Institutional Quantitative Scan for high-conviction alpha entries."""
-        logger.info("⚡ Initiating Phase-3 INSTITUTIONAL 12-Factor Quantitative Alpha Scan...")
+        """Runs the 12-indicator composite scoring scanner for high-conviction alpha entries."""
+        logger.info("⚡ Initiating Phase-3 12-indicator composite scoring scanner...")
         scored_picks = []
         
         try:
@@ -363,13 +363,13 @@ class USIntradayScanner:
         
         # Log the leaderboard
         logger.info("═══════════════════════════════════════════════════════════════")
-        logger.info("  📊 12-FACTOR INSTITUTIONAL QUANTITATIVE ALPHA LEADERBOARD")
+        logger.info("  📊 12-indicator composite scoreboard")
         logger.info("═══════════════════════════════════════════════════════════════")
         for rank, (sym, sc, rsi, macd, bb, rv) in enumerate(scored_picks[:20], 1):
             logger.info(f"  #{rank:02d} | {sym:6s} | Score: {sc:5.1f} | RSI: {rsi:5.1f} | MACD: {macd:15s} | BB: {bb:16s} | RVol: {rv:.1f}x")
         logger.info("═══════════════════════════════════════════════════════════════")
         
-        logger.info(f"Phase-3 Scan Complete. {len(scored_picks)} assets qualified from 12-Factor Institutional pipeline.")
+        logger.info(f"Phase-3 Scan Complete. {len(scored_picks)} assets qualified from 12-indicator composite pipeline.")
         
         # Return only the top 15 symbols sorted by score
         return [s[0] for s in scored_picks[:15]]

@@ -39,14 +39,24 @@ class ModelRegistry:
         logger.info(f"Registered new model version: {version}")
 
     def set_active_model(self, version: str):
-        """Marks a model version as the primary active artifact for the bot."""
-        available = [m["version"] for m in self.metadata["models"]]
-        if version in available:
-            self.metadata["active_version"] = version
-            self._save_registry()
-            logger.info(f"Promoted model {version} to ACTIVE.")
-        else:
+        """Marks a model version as the primary active artifact after strict walk-forward validation."""
+        target_model = next((m for m in self.metadata["models"] if m["version"] == version), None)
+        
+        if not target_model:
             logger.error(f"Cannot set active model. Version {version} not found.")
+            raise ValueError(f"Version {version} not found in registry.")
+            
+        # Walk-Forward Validation Gate
+        metrics = target_model.get("metrics", {})
+        sharpe = metrics.get("walk_forward_sharpe", 0.0)
+        
+        if sharpe < 0.5:
+            logger.error(f"Model {version} failed walk-forward validation (Sharpe {sharpe:.2f} < 0.5). Promotion rejected.")
+            raise ValueError("Model failed minimum performance threshold out-of-sample.")
+            
+        self.metadata["active_version"] = version
+        self._save_registry()
+        logger.info(f"Promoted model {version} to ACTIVE (Walk-Forward Sharpe: {sharpe:.2f}).")
 
     def get_active_model(self) -> dict | None:
         if not self.metadata["active_version"]:

@@ -150,24 +150,54 @@ def run_single_cycle():
              for signal in arb_signals:
                  s_target = signal["short_target"]
                  l_target = signal["long_target"]
-                 logger.info(f"Executing Stat-Arb Linked Trade: SHORT {s_target} + LONG {l_target}")
+                 import uuid
+                 transaction_id = str(uuid.uuid4())[:8]
+                 logger.info(f"Executing Stat-Arb Transaction {transaction_id}: SHORT {s_target} + LONG {l_target}")
+                 
+                 # Pre-Trade Tradability Check
+                 try:
+                     asset_s = client.get_asset(s_target)
+                     asset_l = client.get_asset(l_target)
+                     if not asset_s.tradable or not asset_s.shortable or not asset_l.tradable:
+                         logger.warning(f"Tx {transaction_id} Aborted: Pair assets are not fully tradable/shortable.")
+                         continue
+                 except Exception as e:
+                     logger.warning(f"Tx {transaction_id} Aborted: Asset check failed: {e}")
+                     continue
                  
                  # Issue Dual Route
                  s_order = MarketOrderRequest(symbol=s_target, qty=5, side=OrderSide.SELL, time_in_force=TimeInForce.DAY)
                  l_order = MarketOrderRequest(symbol=l_target, qty=5, side=OrderSide.BUY, time_in_force=TimeInForce.DAY)
                  
                  # Microsecond-latency execution via Python Threads
+                 s_filled, l_filled = False, False
+                 
                  def submit_leg(order):
                      try:
-                         client.submit_order(order_data=order)
+                         return client.submit_order(order_data=order)
                      except Exception as leg_e:
                          logger.error(f"Stat-Arb Leg failed: {leg_e}")
+                         return None
                  
                  with ThreadPoolExecutor(max_workers=2) as executor:
-                     executor.submit(submit_leg, s_order)
-                     executor.submit(submit_leg, l_order)
+                     future_s = executor.submit(submit_leg, s_order)
+                     future_l = executor.submit(submit_leg, l_order)
                      
-                 logger.success(f"Stat-Arb strictly executed ZERO-LATENCY for {signal['pair_id']}")
+                     res_s = future_s.result()
+                     res_l = future_l.result()
+                     
+                     s_filled = res_s is not None
+                     l_filled = res_l is not None
+
+                 # Rollback Atomicity Check
+                 if s_filled and not l_filled:
+                     logger.critical(f"Tx {transaction_id}: LONG Leg {l_target} FAILED. Flattening naked SHORT leg on {s_target} immediately!")
+                     client.submit_order(order_data=MarketOrderRequest(symbol=s_target, qty=5, side=OrderSide.BUY, time_in_force=TimeInForce.DAY))
+                 elif l_filled and not s_filled:
+                     logger.critical(f"Tx {transaction_id}: SHORT Leg {s_target} FAILED. Flattening naked LONG leg on {l_target} immediately!")
+                     client.submit_order(order_data=MarketOrderRequest(symbol=l_target, qty=5, side=OrderSide.SELL, time_in_force=TimeInForce.DAY))
+                 elif s_filled and l_filled:
+                     logger.success(f"Stat-Arb Transaction {transaction_id} strictly executed ATOMICALLY for {signal['pair_id']}")
         except Exception as arb_e:
              logger.warning(f"Stat-Arb submodule bypassed cleanly: {arb_e}")
              
@@ -239,16 +269,14 @@ def run_single_cycle():
                  imbalance_long = 1.0
                  imbalance_short = 1.0
                  
-             # Synthesize actual realtime state mapping (8-Dimensional Multi-Modal)
+             # Synthesize actual realtime state mapping (Strict 6-Dimensional Honest Data)
              state_vector = np.array([
                  live_return, 
                  live_volatility, 
                  0.01, # Spread
                  0.0,  # Pos
                  1.0,  # Regime
-                 1.0,  # Capital Ratio
-                 whale_sentiment, # Synthetic NLP / Dark Pool 
-                 imbalance_long   # L2 Microstructure Array
+                 1.0   # Capital Ratio
              ], dtype=np.float32)
              
              action, _lstm_states = rl_model.predict(state_vector, deterministic=True)
