@@ -322,27 +322,13 @@ def run_single_cycle():
                      logger.warning(f"Swarm simulation bypassed: {sw_e}")
                      
                  try:
-                     order_req = MarketOrderRequest(
-                         symbol=target,
-                         qty=5, 
-                         side=OrderSide.BUY,
-                         time_in_force=TimeInForce.DAY
-                     )
-                     client.submit_order(order_data=order_req)
-                     logger.success(f"Successfully placed order for {target} guided by RL.")
-                     
-                     # Submitting server-side Trailing Stop Loss to lock profits
-                     stop_req = TrailingStopOrderRequest(
-                         symbol=target,
-                         qty=5,
-                         side=OrderSide.SELL,
-                         time_in_force=TimeInForce.GTC,
-                         trail_percent=2.0
-                     )
-                     client.submit_order(order_data=stop_req)
-                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for {target}.")
-                 except Exception as alp_e:
-                     logger.error(f"Failed to place live order: {alp_e}")
+                     # IPC handover to Rust Execution Engine
+                     from execution.zmq_dispatcher import ZMQDispatcher
+                     zmq_pub = ZMQDispatcher()
+                     zmq_pub.publish_trade(symbol=target, side="BUY", qty=float(trade_qty))
+                     logger.success(f"🚀 Brain offloaded execution of {target} LONG to Rust Engine via ZeroMQ.")
+                 except Exception as err:
+                     logger.error(f"ZMQ Dispatch failed for {target}: {err}")
                      
              elif action[0] < -0.03: # Confidence threshold for SHORT (Bear Signal)
                  if imbalance_short > 5.0:
@@ -366,28 +352,13 @@ def run_single_cycle():
                      logger.warning(f"Swarm simulation bypassed: {sw_e}")
                      
                  try:
-                     order_req = MarketOrderRequest(
-                         symbol=target,
-                         qty=5, 
-                         side=OrderSide.SELL,
-                         time_in_force=TimeInForce.DAY
-                     )
-                     client.submit_order(order_data=order_req)
-                     logger.success(f"Successfully SHORTED {target} to profit from immediate downside.")
-                     
-                     # Submitting server-side Trailing Stop on the BUY side for Shorts
-                     stop_req = TrailingStopOrderRequest(
-                         symbol=target,
-                         qty=5,
-                         side=OrderSide.BUY,
-                         time_in_force=TimeInForce.GTC,
-                         trail_percent=2.0
-                     )
-                     client.submit_order(order_data=stop_req)
-                     logger.info(f"Deployed invisible 2.0% Trailing Profit-Lock for SHORT {target}.")
-                 except Exception as alp_e:
-                     # Alpaca gracefully rejects non-shortable / hard-to-borrow assets
-                     logger.error(f"Failed to short {target} (Asset may be hard to borrow): {alp_e}")
+                     # IPC handover to Rust Execution Engine
+                     from execution.zmq_dispatcher import ZMQDispatcher
+                     zmq_pub = ZMQDispatcher()
+                     zmq_pub.publish_trade(symbol=target, side="SELL", qty=float(trade_qty))
+                     logger.success(f"🚀 Brain offloaded execution of {target} SHORT to Rust Engine via ZeroMQ.")
+                 except Exception as err:
+                     logger.error(f"ZMQ Dispatch failed for {target} SHORT: {err}")
              else:
                  logger.info(f"RL Agent recommends HOLD (No Action) for {target}.")
         
