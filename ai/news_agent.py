@@ -47,7 +47,8 @@ class NewsAgent:
                     if headlines:
                         return headlines
             except Exception as tw_e:
-                logger.warning(f"Twitter Sync failed (falling back to NewsAPI): {tw_e}")
+                logger.error(f"🚨 ALERT: Primary Alternative Data (Twitter) Sync failed: {tw_e}")
+                logger.warning(f"Downgrading data provider to secondary tier (Alpaca/NewsAPI)...")
                 self.provider = "newsapi" # Graceful fallback
         
         # Fallback to Alpaca's Free Partner News (Benzinga)
@@ -78,10 +79,11 @@ class NewsAgent:
                     if res.get("status") == "ok":
                         headlines = [art["title"] for art in res.get("articles", [])[:10]]
             except Exception as e:
-                logger.error(f"News fetch failed: {e}")
+                logger.error(f"News fetch failed natively: {e}")
                 
             if not headlines:
-                 return ["Stock market rallies today.", "Tech stocks decline on inflation fears."]
+                 logger.critical("🚨 ALERT: ALL News fetch tiers (Twitter, Alpaca, NewsAPI) failed! Data source is DOWN.")
+                 raise RuntimeError("NewsDataUnavailable: No alternative text data available to parse.")
         return headlines
 
     def deduce_sentiment(self, raw_news: list[str]) -> dict:

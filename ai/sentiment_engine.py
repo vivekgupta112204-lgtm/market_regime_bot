@@ -52,7 +52,8 @@ class NewsSentimentAnalyzer:
             logger.info(f"📋 Found {len(headlines)} headlines for {symbol}")
             
             if not self.client:
-                return {"score": 0.0, "headlines": headlines, "verdict": "NEUTRAL"}
+                logger.critical("🚨 ALERT: Sentiment API Key Missing. Engine Unavailable.")
+                return {"score": 0.0, "headlines": headlines, "verdict": "UNAVAILABLE_NO_API"}
             
             # Use Gemini to analyze sentiment
             prompt = (
@@ -65,10 +66,27 @@ class NewsSentimentAnalyzer:
                 f"SUMMARY: One sentence summary of the news mood."
             )
             
-            response = self.client.models.generate_content(
-                model='gemini-1.5-flash',
-                contents=prompt,
-            )
+            import threading
+            response = None
+            
+            def _call():
+                nonlocal response
+                response = self.client.models.generate_content(
+                    model='gemini-1.5-flash',
+                    contents=prompt,
+                )
+                
+            t = threading.Thread(target=_call)
+            t.start()
+            t.join(timeout=8.0)
+            
+            if t.is_alive():
+                logger.error("🚨 ALERT: Sentiment API Call Timeout.")
+                return {"score": 0.0, "headlines": headlines, "verdict": "UNAVAILABLE_TIMEOUT"}
+            
+            if not response:
+                return {"score": 0.0, "headlines": headlines, "verdict": "UNAVAILABLE_ERROR"}
+                
             reply = response.text.strip()
             
             # Parse score
@@ -89,8 +107,8 @@ class NewsSentimentAnalyzer:
             return {"score": score, "headlines": headlines, "verdict": verdict}
             
         except Exception as e:
-            logger.warning(f"News sentiment analysis failed for {symbol}: {e}")
-            return {"score": 0.0, "headlines": [], "verdict": "NEUTRAL"}
+            logger.error(f"🚨 ALERT: News sentiment analysis failed for {symbol}: {e}")
+            return {"score": 0.0, "headlines": [], "verdict": "UNAVAILABLE_ERROR"}
 
 
 class MultiTimeframeConfluence:
