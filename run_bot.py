@@ -370,8 +370,41 @@ def run_single_cycle():
         raise e
 
 if __name__ == "__main__":
-    # Standardize log outputs for GitHub Artifacts
-    logger.add("run_logs.txt", rotation="10 MB")
+    import time
+    import pytz
+    from datetime import datetime, time as dtime
     
-    # Run the synchronous or asynchronous wrapper
-    run_single_cycle()
+    logger.add("run_logs.txt", rotation="10 MB")
+    logger.info("Initializing Advanced 24/7 Intraday SWARM Bot Pipeline...")
+    
+    # Run a continuous loop inside systemd
+    while True:
+        try:
+            ny_tz = pytz.timezone("America/New_York")
+            now = datetime.now(tz=ny_tz)
+            
+            # Weekend check
+            if now.weekday() >= 5:
+                logger.info("Weekend. Market Closed. Intraday Engine Sleeping for 1 hour...")
+                time.sleep(3600)
+                continue
+                
+            now_time = now.time()
+            market_open = dtime(9, 30)
+            market_close = dtime(16, 0)
+            
+            if now_time < market_open or now_time > market_close:
+                logger.info(f"Outside US Market Hours (Now: {now_time.strftime('%H:%M')} ET). Intraday Engine Sleeping for 5 minutes...")
+                time.sleep(300)
+                continue
+                
+            logger.info("US Market is OPEN. Executing Slow-Brain AI Swarm Cycle...")
+            run_single_cycle()
+            
+            # Wait 15 minutes between Swing analysis cycles
+            logger.info("Intraday Cycle Complete. Intraday Engine sleeping for 15 minutes cooling period.")
+            time.sleep(900)
+            
+        except Exception as e:
+            logger.error(f"Intraday Loop crashed: {e}")
+            time.sleep(60) # Wait 1 minute before retrying
