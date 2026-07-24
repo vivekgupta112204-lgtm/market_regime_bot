@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 """
 Wall-Street Grade High-Frequency Trading (HFT) Stateful WebSocket Execution Engine.
-Integrated with C-Compiled GIL bypass and Level-2 Order Book Imbalance Routing.
+Integrated with C-Compiled GIL bypass, L2 Order Book Imbalance Routing and Multi-Threaded Tracking.
 """
 
 import os
@@ -26,34 +26,28 @@ def calculate_nano_momentum_c(tick_array: np.ndarray) -> float:
 
 @njit(fastmath=True, nogil=True)
 def calculate_l2_imbalance_c(bid_sizes: np.ndarray, ask_sizes: np.ndarray) -> float:
-    """
-    Measures Order Book Imbalance (Institutional limit orders).
-    > 1.0 means more BID volume (Bullish Wall)
-    < 1.0 means more ASK volume (Bearish Wall)
-    """
+    """Measures Order Book Imbalance."""
     total_bids = np.sum(bid_sizes)
     total_asks = np.sum(ask_sizes)
     if total_asks == 0:
         return 999.0
     return total_bids / total_asks
 
-# 1. API Credentials
 API_KEY = os.getenv("ALPACA_API_KEY")
 SEC_KEY = os.getenv("ALPACA_SECRET_KEY")
 
 logger.add("logs/hft_logs.txt", rotation="50 MB")
 
 class UltraLowLatencyHFT:
-    """Stateful High-Frequency Scalping Engine with L2 Orderbook Analysis & Target Limits."""
-    def __init__(self, target_symbol: str = "SPY"):
-        self.symbol = target_symbol
+    """Stateful High-Frequency Scalping Engine for Top-10 Universe."""
+    def __init__(self, target_symbols: list):
+        self.symbols = target_symbols
         
-        # State matrices for C-engine
-        self.tick_window = []
-        self.recent_bid_sizes = []
-        self.recent_ask_sizes = []
+        # Dictionaries for tracking multiple state matrices independently
+        self.tick_windows = {sym: [] for sym in target_symbols}
+        self.recent_bid_sizes = {sym: [] for sym in target_symbols}
+        self.recent_ask_sizes = {sym: [] for sym in target_symbols}
         
-        # Lock to prevent double execution within micro-seconds
         self.trade_lock = False
         
         # Institutional Limits ($50/day Target)
@@ -69,130 +63,122 @@ class UltraLowLatencyHFT:
         self.stream = StockDataStream(API_KEY, SEC_KEY)
 
     async def _l2_quote_handler(self, quote):
-        """Asynchronous callback fired on every Level-2 Orderbook update (Bids/Asks limit orders)."""
-        # Store latest limit order resting liquidity
-        bid_size = quote.bid_size
-        ask_size = quote.ask_size
+        sym = quote.symbol
+        if sym not in self.symbols: return
+            
+        self.recent_bid_sizes[sym].append(quote.bid_size)
+        self.recent_ask_sizes[sym].append(quote.ask_size)
         
-        self.recent_bid_sizes.append(bid_size)
-        self.recent_ask_sizes.append(ask_size)
-        
-        # Keep only the last 10 L2 updates in rolling window
-        if len(self.recent_bid_sizes) > 10:
-            self.recent_bid_sizes.pop(0)
-            self.recent_ask_sizes.pop(0)
+        if len(self.recent_bid_sizes[sym]) > 10:
+            self.recent_bid_sizes[sym].pop(0)
+            self.recent_ask_sizes[sym].pop(0)
 
     async def _trade_handler(self, data):
-        """Asynchronous callback fired every sub-second on a completed tick/trade."""
         if self.trade_lock or not self.trading_allowed:
-            return  # Prevent overlapping scalps or trading if target is hit
+            return  
+            
+        sym = data.symbol
+        if sym not in self.symbols: return
             
         price = data.price
+        self.tick_windows[sym].append(price)
         
-        # Append to micro-window 
-        self.tick_window.append(price)
-        if len(self.tick_window) > 10:
-             self.tick_window.pop(0)
+        if len(self.tick_windows[sym]) > 10:
+             self.tick_windows[sym].pop(0)
              
-             # Calculate micro-momentum using C-compiled No-GIL engine
-             tick_array = np.array(self.tick_window, dtype=np.float32)
+             tick_array = np.array(self.tick_windows[sym], dtype=np.float32)
              price_delta = calculate_nano_momentum_c(tick_array)
              
-             # Check L2 Imbalance if we have orderbook data
              imbalance = 1.0 
-             if len(self.recent_bid_sizes) > 5:
-                 b_arr = np.array(self.recent_bid_sizes, dtype=np.float32)
-                 a_arr = np.array(self.recent_ask_sizes, dtype=np.float32)
+             if len(self.recent_bid_sizes[sym]) > 5:
+                 b_arr = np.array(self.recent_bid_sizes[sym], dtype=np.float32)
+                 a_arr = np.array(self.recent_ask_sizes[sym], dtype=np.float32)
                  imbalance = calculate_l2_imbalance_c(b_arr, a_arr)
              
+             # Relative price jump (0.10% move)
+             momentum_pct = price_delta / price
+             
              # HFT Strategy: Nano-Momentum Burst + Level 2 Support Validation (HIGH ACCURACY MODE)
-             if price_delta > 0.10: # Price jumped 10 cents instantly (High Confirmation)
-                 if imbalance > 4.0: # Bids limit volume > 4x Ask volume (Massive Institutional support wall)
-                     logger.success(f"⚡ [HFT A++ TRIGGER]: Extreme L2 Imbalance ({imbalance:.1f}x) CONFIRMS Burst (+${price_delta:.2f}). FIRE LONG SCALP!")
-                     await self._execute_scalp("BUY")
+             if momentum_pct > 0.0010: # Price jumped 0.10% instantly
+                 if imbalance > 4.0:
+                     logger.success(f"⚡ [HFT A++ TRIGGER]: Extreme L2 Imbalance ({imbalance:.1f}x) CONFIRMS Burst (+{momentum_pct*100:.3f}%) on {sym}. FIRE LONG SCALP!")
+                     await self._execute_scalp("BUY", sym)
                  else:
-                     logger.warning(f"⚠️ [HFT FILTERED]: Price jumped (+${price_delta:.2f}) but L2 Book is weak (Imbalance: {imbalance:.1f}x). Ignoring to maintain high win-rate.")
-                     self.tick_window.clear()
+                     logger.warning(f"⚠️ [HFT FILTERED]: Price jumped on {sym} but L2 Book is weak. Ignoring.")
+                     self.tick_windows[sym].clear()
                   
-             elif price_delta < -0.10: # Price plunged 10 cents
-                 if imbalance < 0.25: # Ask limit volume > 4x Bid volume (Massive sell wall)
-                     logger.error(f"⚡ [HFT A++ TRIGGER]: Extreme L2 Imbalance ({imbalance:.1f}x) CONFIRMS Plunge (-${abs(price_delta):.2f}). FIRE SHORT SCALP!")
-                     await self._execute_scalp("SELL")
+             elif momentum_pct < -0.0010: # Price plunged 0.10%
+                 if imbalance < 0.25:
+                     logger.error(f"⚡ [HFT A++ TRIGGER]: Extreme L2 Imbalance ({imbalance:.1f}x) CONFIRMS Plunge (-{abs(momentum_pct*100):.3f}%) on {sym}. FIRE SHORT SCALP!")
+                     await self._execute_scalp("SELL", sym)
                  else:
-                     logger.warning(f"⚠️ [HFT FILTERED]: Price dropped (-${abs(price_delta):.2f}) but Sellers are weak in L2. Ignoring to protect accuracy.")
-                     self.tick_window.clear()
+                     logger.warning(f"⚠️ [HFT FILTERED]: Price dropped on {sym} but Sellers weak in L2. Ignoring.")
+                     self.tick_windows[sym].clear()
 
-    async def _execute_scalp(self, direction: str):
-        """Fires 0-latency executions. Implements Advanced Synthetic Inverse ETF Routing for Shorting."""
+    async def _execute_scalp(self, direction: str, symbol: str):
         self.trade_lock = True
         try:
-             # Advanced Short Selling Logic (Bypass Hard-to-Borrow & Margin issues)
-             exec_symbol = self.symbol
+             exec_symbol = symbol
              exec_side = OrderSide.BUY if direction == "BUY" else OrderSide.SELL
              
-             # Synthetic Short Mapping (Index -> Bear ETF)
              inverse_etf_map = {
-                 "SPY": "SH",   # ProShares Short S&P500
-                 "QQQ": "PSQ",  # ProShares Short QQQ
-                 "IWM": "RWM"   # ProShares Short Russell 2000
+                 "SPY": "SH",   
+                 "QQQ": "PSQ",  
+                 "IWM": "RWM"   
              }
              
-             if direction == "SELL" and self.symbol in inverse_etf_map:
-                 exec_symbol = inverse_etf_map[self.symbol]
-                 exec_side = OrderSide.BUY # We BUY the Inverse ETF instead of shorting the main index!
-                 logger.warning(f"📉 ADVANCED SHORT: Converted 'Short {self.symbol}' into 'Buy {exec_symbol}'. Bypassing Broker Margin & HTB Restrictions!")
+             if direction == "SELL" and symbol in inverse_etf_map:
+                 exec_symbol = inverse_etf_map[symbol]
+                 exec_side = OrderSide.BUY 
+                 logger.warning(f"📉 ADVANCED SHORT: Converted 'Short {symbol}' into 'Buy {exec_symbol}'. Bypassing Broker Margin Restrictions!")
 
              order = MarketOrderRequest(
                  symbol=exec_symbol,
-                 qty=10,  # Controlled qty for $50/day target pacing
+                 notional=100.0,  # Switch to $100 Fractional safe sizing across the 10-stock universe
                  side=exec_side,
                  time_in_force=TimeInForce.DAY
              )
              self.client.submit_order(order_data=order)
-             logger.success(f"HFT Scalp SUCCESS: {'BOUGHT Inverse ETF' if exec_symbol != self.symbol else direction} 10 shares of {exec_symbol}")
+             logger.success(f"HFT Scalp SUCCESS: {'BOUGHT Inverse ETF' if exec_symbol != symbol else direction} $100 of {exec_symbol}")
              
-             # ---- POST TRADE TARGET CHECK (Does not block tick speed) ----
              account = self.client.get_account()
              daily_pnl = float(account.equity) - float(account.last_equity)
              logger.info(f"📊 LIVE PNL UPDATE: Today's Profit is ${daily_pnl:.2f}")
              
              if daily_pnl >= self.daily_target_usd:
-                 logger.success(f"🎯 INSTITUTIONAL CAP REACHED: Profit (+${daily_pnl:.2f}) exceeds ${self.daily_target_usd}. System going into Stand-by till tomorrow! 🚀")
+                 logger.success(f"🎯 INSTITUTIONAL CAP REACHED: Profit (+${daily_pnl:.2f}) cap hit. System Stand-by! 🚀")
                  self.trading_allowed = False
              elif daily_pnl <= self.daily_loss_limit_usd:
-                 logger.critical(f"🛑 RISK LIMIT REACHED: Loss (-${abs(daily_pnl):.2f}) exceeds safety net. HFT System SHUT DOWN to protect capital!")
+                 logger.critical(f"🛑 RISK LIMIT REACHED: Loss (-${abs(daily_pnl):.2f}) exceeds safety net. HFT SHUT DOWN!")
                  self.trading_allowed = False
                  
         except Exception as e:
              logger.error(f"HFT Execution failed: {e}")
         finally:
-             # Cool down period to prevent machine-gunning orders
              await asyncio.sleep(2)
-             self.tick_window.clear()
+             self.tick_windows[symbol].clear()
              self.trade_lock = False
 
     def run_engine(self):
-        """Connects and maintains the persistent WebSocket pipeline."""
-        logger.info(f"🚀 Booting Wall-Street HFT WebSocket Engine targeting: {self.symbol}")
-        logger.info(f"📡 Features: C-Compiled Momentum | Live L2 Orderbook Array | Fake-out Trap Avoidance")
+        logger.info(f"🚀 Booting Wall-Street HFT WebSocket Engine targeting: {self.symbols}")
         
         try:
-             # Subscribe to both Completed Trades AND Live L2 Quotes (Bid/Ask Wall)
-             self.stream.subscribe_trades(self._trade_handler, self.symbol)
-             self.stream.subscribe_quotes(self._l2_quote_handler, self.symbol)
+             for sym in self.symbols:
+                 self.stream.subscribe_trades(self._trade_handler, sym)
+                 self.stream.subscribe_quotes(self._l2_quote_handler, sym)
              
-             logger.info(f"Subscribed to Layer-2 Quoting & Tick Data for {self.symbol}. Waiting for flow...")
+             logger.info(f"Subscribed to Layer-2 Quoting & Tick Data for 10 MegaCap Stocks. Waiting for flow...")
              self.stream.run()
         except KeyboardInterrupt:
+             self.stream.stop_ws()
              logger.info("Gracefully disconnecting HFT WebSocket...")
-             self.stream.close()
         except Exception as e:
              logger.error(f"WebSocket unhandled crash: {e}")
 
 if __name__ == "__main__":
-    # Ensure Windows asyncio works correctly with Alpaca WebSockets
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         
-    engine = UltraLowLatencyHFT("SPY")
+    targets = ["SPY", "QQQ", "IWM", "AAPL", "MSFT", "TSLA", "NVDA", "AMD", "AMZN", "META"]
+    engine = UltraLowLatencyHFT(targets)
     engine.run_engine()
