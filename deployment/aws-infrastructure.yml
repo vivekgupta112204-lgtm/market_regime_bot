@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Institutional Trading Bot EC2 Deployment (Phase-3 HFT Engine)'
+
+Parameters:
+  InstanceType:
+    Description: EC2 instance type (Free tier eligible recommended)
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t2.micro, t3.micro, t3.small, t3.medium]
+  
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: "" # Leave empty if you don't have one, we will use Session Manager
+
+Resources:
+  TradingBotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # Allows AWS Session Manager access instead of SSH
+
+  TradingBotInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref TradingBotRole
+
+  TradingBotSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and Dashboard HTTP
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          CidrIp: 0.0.0.0/0
+
+  TradingBotInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: ami-0c7217cdde317cfec # Ubuntu Server 22.04 LTS (us-east-1)
+      SecurityGroupIds:
+        - !Ref TradingBotSecurityGroup
+      IamInstanceProfile: !Ref TradingBotInstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          
+          # 1. Update and install dependencies
+          apt-get update -y
+          apt-get install -y python3-pip python3-venv git htop jq
+          
+          # 2. Setup App Directory
+          mkdir -p /opt/trading_bot
+          cd /opt/trading_bot
+          
+          # Create virtual environment
+          python3 -m venv venv
+          source venv/bin/activate
+          
+          # Initialize simple architecture (Pulled from git or manual upload)
+          # In production, recommend setting up GitHub deploy keys here
+          git clone https://github.com/vivekgupta112204-lgtm/market_regime_bot.git . || echo "Repo clone skipped, user will upload via SCP"
+          
+          # Install Python dependencies if requirements exists
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install yfinance loguru pandas numpy alpaca-trade-api stable-baselines3 google-genai ta numba
+          fi
+          
+          # 3. Create Systemd Service for 24/7 Execution
+          cat << 'EOF' > /etc/systemd/system/tradingbot.service
+          [Unit]
+          Description=Institutional Autonomous Trading Engine
+          After=network.target
+
+          [Service]
+          User=root
+          WorkingDirectory=/opt/trading_bot
+          ExecStart=/opt/trading_bot/venv/bin/python run_bot.py
+          Restart=always
+          RestartSec=10
+          Environment=PYTHONBUFFERED=1
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          # Reload and start bot
+          systemctl daemon-reload
+          systemctl enable tradingbot.service
+          # (Bot will intentionally fail until user adds API keys to .env)
+
+Outputs:
+  InstanceId:
+    Description: "EC2 Instance ID for the Trading Bot"
+    Value: !Ref TradingBotInstance
+  PublicIP:
+    Description: "Public IP Address (SSH)"
+    Value: !GetAtt TradingBotInstance.PublicIp
