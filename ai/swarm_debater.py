@@ -65,41 +65,51 @@ class SwarmDebateEngine:
         
         import concurrent.futures
         
+        import random
+        # Anti-Overfitting: Agent Dropout Mechanism (20% chance to drop 1-2 non-Risk agents)
+        dropout_active = random.random() < 0.20
+        agents_to_drop = []
+        if dropout_active:
+            agents_to_drop = random.sample(["BULL", "BEAR", "CONTRARIAN"], random.randint(1, 2))
+            logger.info(f"🌀 AGENT DROPOUT ACTIVE: Masking {agents_to_drop} to force Judge generalization.")
+        
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            # First round: Bull, Bear, and initial Risk Assessment can run perfectly parallel
             risk_prompt_init = f"You are Chief Risk Officer. A {ppo_signal} trade on {target} is proposed. {history_ctx} Analyze risk. End with 'RISK_SCORE: X/10'."
-            
-            future_bull = executor.submit(self._query_llm, bull_prompt)
-            future_bear = executor.submit(self._query_llm, bear_prompt)
             future_risk = executor.submit(self._query_llm, risk_prompt_init)
             
-            bull_reply = future_bull.result()
-            bear_reply = future_bear.result()
+            future_bull = executor.submit(self._query_llm, bull_prompt) if "BULL" not in agents_to_drop else None
+            future_bear = executor.submit(self._query_llm, bear_prompt) if "BEAR" not in agents_to_drop else None
+            
             risk_reply = future_risk.result()
+            bull_reply = future_bull.result() if future_bull else "[OFFLINE DUE TO DROPOUT - MAKE DECISION WITHOUT BULL]"
+            bear_reply = future_bear.result() if future_bear else "[OFFLINE DUE TO DROPOUT - MAKE DECISION WITHOUT BEAR]"
 
-        bull_conf = self._extract_confidence(bull_reply)
-        bear_conf = self._extract_confidence(bear_reply)
+        bull_conf = self._extract_confidence(bull_reply) if "BULL" not in agents_to_drop else 0
+        bear_conf = self._extract_confidence(bear_reply) if "BEAR" not in agents_to_drop else 0
         risk_score = self._extract_risk_score(risk_reply)
         
-        logger.info(f"📈 [AGENT BULL] (Confidence: {bull_conf}%): '{bull_reply[:100]}...'")
-        logger.info(f"📉 [AGENT BEAR] (Confidence: {bear_conf}%): '{bear_reply[:100]}...'")
+        if "BULL" not in agents_to_drop: logger.info(f"📈 [AGENT BULL] (Confidence: {bull_conf}%): '{bull_reply[:100]}...'")
+        if "BEAR" not in agents_to_drop: logger.info(f"📉 [AGENT BEAR] (Confidence: {bear_conf}%): '{bear_reply[:100]}...'")
         logger.info(f"🛡️ [AGENT RISK] (Risk: {risk_score}/10): '{risk_reply[:100]}...'")
         
-        majority_is_bullish = bull_conf > bear_conf
-        contrarian_stance = "against" if majority_is_bullish else "for"
-        
-        contrarian_prompt = (
-            f"You are a contrarian manager. Majority is {'bullish' if majority_is_bullish else 'bearish'} on {target}. "
-            f"Argue {contrarian_stance} the {ppo_signal} trade in 1 sentence. Then write 'CONVICTION: X%'."
-        )
-        contrarian_reply = self._query_llm(contrarian_prompt)
-        contrarian_conf = self._extract_confidence(contrarian_reply, keyword="CONVICTION")
-        
+        if "CONTRARIAN" not in agents_to_drop:
+            majority_is_bullish = bull_conf > bear_conf
+            contrarian_stance = "against" if majority_is_bullish else "for"
+            contrarian_prompt = (
+                f"You are a contrarian manager. Majority is {'bullish' if majority_is_bullish else 'bearish'} on {target}. "
+                f"Argue {contrarian_stance} the {ppo_signal} trade in 1 sentence. Then write 'CONVICTION: X%'."
+            )
+            contrarian_reply = self._query_llm(contrarian_prompt)
+            contrarian_conf = self._extract_confidence(contrarian_reply, keyword="CONVICTION")
+        else:
+            contrarian_reply = "[OFFLINE DUE TO DROPOUT - MAKE DECISION WITHOUT CONTRARIAN]"
+            contrarian_conf = 0
+            
         judge_prompt = (
             f"You are the Supreme Judge. {ppo_signal} on {target}. \n"
             f"BULL ({bull_conf}%): '{bull_reply[:50]}'\nBEAR ({bear_conf}%): '{bear_reply[:50]}'\n"
             f"RISK ({risk_score}/10): '{risk_reply[:50]}'\nCONTRARIAN: '{contrarian_reply[:50]}'\n"
-            f"Rules: If Risk Score >= 7, you MUST veto. Output ONLY [APPROVED] or [VETO] followed by reasoning."
+            f"Rules: If Risk Score >= 7, you MUST veto. Output ONLY [APPROVED] or [VETO] followed by reasoning. Do not complain if an agent is OFFLINE."
         )
         judge_reply = self._query_llm(judge_prompt)
         

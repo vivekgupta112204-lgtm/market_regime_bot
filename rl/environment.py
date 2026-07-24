@@ -11,18 +11,19 @@ class TradingEnv(gym.Env):
     
     metadata = {"render_modes": ["human"]}
     
-    def __init__(self, data: pd.DataFrame, initial_balance: float = 100000.0):
+    def __init__(self, data: pd.DataFrame, initial_balance: float = 100000.0, is_training: bool = True):
         super(TradingEnv, self).__init__()
         
         self.data = data
         self.initial_balance = initial_balance
         self.max_steps = len(self.data) - 1
+        self.is_training = is_training
         
         # Action Space: [-1, 1] representing -100% (Short) to 100% (Long) allocation
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         
-        # Obv Space: [Returns, Volatility, Spread, PrevAction, CurrentRegime, BalanceRatio] = Size 6
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
+        # Obv Space: [Returns, Volatility, Spread, PrevAction, CurrentRegime, BalanceRatio] + [PCA0...PCA3] = Size 10
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(10,), dtype=np.float32)
         
     def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
@@ -34,26 +35,31 @@ class TradingEnv(gym.Env):
         return self._get_obs(), {}
         
     def _get_obs(self) -> np.ndarray:
-        # Calculate dynamic features based on current step
-        # In a real pipeline, data dataframe already holds pre-calculated technicals
         if self.current_step >= len(self.data):
-             return np.zeros(6, dtype=np.float32)
+             return np.zeros(10, dtype=np.float32)
              
         row = self.data.iloc[self.current_step]
         
-        # Mocking or extracting from DF
-        ret = row.get("Returns", 0.0)
-        vol = row.get("Volatility", 0.0)
-        regime = row.get("Regime", 0)
+        ret = float(row.get("Returns", 0.0))
+        vol = float(row.get("Volatility", 0.0))
+        regime = float(row.get("Regime", 0.0))
+        
+        pca_cols = [float(row.get(f"pca_{i}", 0.0)) for i in range(4)]
         
         obs = np.array([
             ret, 
             vol,
             0.01, # Mock spread
             self.position,
-            float(regime),
+            regime,
             self.net_worth / self.initial_balance
-        ], dtype=np.float32)
+        ] + pca_cols, dtype=np.float32)
+        
+        # Regularization: Synthetic Gaussian Noise Injection for anti-curve-fitting
+        if self.is_training:
+            noise = np.random.normal(loc=0.0, scale=0.005, size=obs.shape)
+            obs = obs + noise
+            
         return obs
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:

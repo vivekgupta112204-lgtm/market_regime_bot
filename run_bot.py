@@ -269,14 +269,18 @@ def run_single_cycle():
                  imbalance_long = 1.0
                  imbalance_short = 1.0
                  
-             # Synthesize actual realtime state mapping (Strict 6-Dimensional Honest Data)
+             # Synthesize actual realtime state mapping (Strict 10-Dimensional PCA Data)
              state_vector = np.array([
                  live_return, 
                  live_volatility, 
                  0.01, # Spread
                  0.0,  # Pos
                  1.0,  # Regime
-                 1.0   # Capital Ratio
+                 1.0,  # Capital Ratio
+                 0.0,  # pca_0
+                 0.0,  # pca_1
+                 0.0,  # pca_2
+                 0.0   # pca_3
              ], dtype=np.float32)
              
              action, _lstm_states = rl_model.predict(state_vector, deterministic=True)

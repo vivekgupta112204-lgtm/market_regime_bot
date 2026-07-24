@@ -90,7 +90,7 @@ class FeaturePipeline:
             self._feature_columns,
         )
 
-        # ---- Step 2: Feature Selection ------------------------------------
+        # ---- Step 2: Feature Selection & Scaling (Pre-PCA) ----------------
         if select:
             self._selected_features = select_features(
                 df,
@@ -100,15 +100,35 @@ class FeaturePipeline:
         else:
             self._selected_features = list(self._feature_columns)
 
-        # ---- Step 3: Feature Scaling --------------------------------------
         if scale:
             df = self._scaler.fit_transform(df, self._selected_features)
 
+        # ---- Step 3: Dimensionality Reduction (PCA Anti-Overfitting) ------
+        # Forces agents to learn underlying orthogonal structures rather than memorizing indicator quirks
+        from sklearn.decomposition import PCA
+        
+        # Determine number of components (max 4, or less if input features are fewer)
+        n_components = min(4, len(self._selected_features))
+        
+        pca = PCA(n_components=n_components)
+        pca_data = pca.fit_transform(df[self._selected_features].fillna(0))
+        
+        pca_cols = [f'pca_{i}' for i in range(n_components)]
+        for i, col in enumerate(pca_cols):
+            df[col] = pca_data[:, i]
+            
+        # Drop raw high-dimensional indicators to prevent data leakage/memorization
+        df.drop(columns=self._selected_features, inplace=True, errors='ignore')
+        
+        self._selected_features = pca_cols
+
         logger.info(
-            "Feature pipeline complete: {} features selected, {} rows",
+            "Feature pipeline complete: PCA reduced down to {} orthogonal components (evr: {})",
             len(self._selected_features),
-            len(df),
+            pca.explained_variance_ratio_.round(2)
         )
+        # Store PCA object for transform during inference
+        self.pca = pca
         return df, self._selected_features
 
     # ------------------------------------------------------------------
@@ -135,21 +155,21 @@ class FeaturePipeline:
     # ------------------------------------------------------------------
 
     def save_scaler(self, directory: Path) -> Path:
-        """Persist the fitted scaler to the given directory.
-
-        Args:
-            directory: Target directory.
-
-        Returns:
-            Path to the saved scaler file.
-        """
+        """Persist the fitted scaler and PCA object to the given directory."""
+        import joblib
+        if hasattr(self, 'pca') and self.pca:
+            joblib.dump(self.pca, directory / "pca.pkl")
+            
         return self._scaler.save(directory / "scaler.pkl")
 
     def load_scaler(self, path: Path) -> None:
-        """Load a previously saved scaler.
-
-        Args:
-            path: Path to the scaler ``.pkl`` file.
-        """
+        """Load a previously saved scaler and accompanying PCA weights."""
+        import joblib
         self._scaler = FeatureScaler.load(path)
-        self._selected_features = self._scaler.feature_names
+        
+        pca_path = path.parent / "pca.pkl"
+        if pca_path.exists():
+            self.pca = joblib.load(pca_path)
+            self._selected_features = [f'pca_{i}' for i in range(self.pca.n_components_)]
+        else:
+            self._selected_features = self._scaler.feature_names
