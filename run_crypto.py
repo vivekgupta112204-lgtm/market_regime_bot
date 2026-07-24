@@ -1,143 +1,124 @@
-"""
-Serverless 24/7 Crypto Execution Environment (PPO Reinforcement Learning).
-Executes strictly Fractional (Notional) trades across BTC, ETH, and SOL.
-"""
-
 import sys
 import os
-import json
-import warnings
-warnings.filterwarnings('ignore')
-
-from dotenv import load_dotenv
-load_dotenv()
-
+import asyncio
 import numpy as np
-import pandas as pd
 from loguru import logger
-from datetime import datetime
+from dotenv import load_dotenv
 
-# RL inference setup same as Stock Agent
-from sb3_contrib import RecurrentPPO
+load_dotenv()
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.data.live.crypto import CryptoDataStream
+from numba import njit
 
 # 1. Setup Logging
-log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>CRYPTO-PHASE-10</cyan> - <white>{message}</white>"
+log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>CRYPTO-HFT-ENGINE</cyan> - <white>{message}</white>"
 logger.add(sys.stdout, format=log_format, level="INFO")
+logger.add("logs/crypto_hft_logs.txt", rotation="50 MB")
 
-# 2. Crypto Target Universe
-crypto_targets = ["BTC/USD", "ETH/USD", "SOL/USD"]
+API_KEY = os.getenv('ALPACA_API_KEY')
+SEC_KEY = os.getenv('ALPACA_SECRET_KEY')
 
-# Dollar-amount safe sizing (Never quantity based for expensive Bitcoin)
-TRADE_NOTIONAL_USD = 100.0  # Buy/short exactly $100 worth of crypto per signal
+# Fast C-Compiled Math (Bypass GIL)
+@njit(nogil=True)
+def calculate_nano_momentum_c(prices):
+    if len(prices) < 2:
+        return 0.0
+    return prices[-1] - prices[0]
 
-def run_crypto_cycle():
-    logger.info("--- Booting Crypto PPO 24/7 Environment ---")
-    
-    # 3. Load RL Agent Brain (If missing, bypass execution but don't crash)
-    model_path = os.path.join(os.path.dirname(__file__), "models", "recurrent_ppo_agent.zip")
-    if not os.path.exists(model_path):
-         logger.warning(f"LSTM Model not found at {model_path}. Exiting cleanly.")
-         return
-         
-    try:
-        rl_model = RecurrentPPO.load(model_path)
-        logger.info("Successfully loaded RL Recurrent PPO weights for 24/7 prediction map.")
-    except Exception as e:
-        logger.error(f"Failed to load RL model: {e}")
-        return
+class CryptoLowLatencyHFT:
+    """Micro-second High-Frequency Scalping Engine for Crypto (WebSocket)"""
+    def __init__(self, target_symbols):
+        self.symbols = target_symbols
+        self.tick_windows = {sym: [] for sym in target_symbols}
         
-    api_key = os.getenv('ALPACA_API_KEY')
-    sec_key = os.getenv('ALPACA_SECRET_KEY')
-    
-    if not api_key or not sec_key:
-        logger.critical("Alpaca API keys missing! Cannot boot pipeline.")
-        raise ValueError("ALPACA_API_KEY and ALPACA_SECRET_KEY required.")
-         
-    client = TradingClient(api_key, sec_key, paper=True)
+        self.trade_lock = False
+        self.trading_allowed = True
+        self.daily_target_usd = 50.0  # Common risk cap
+        self.daily_loss_limit_usd = -25.0
         
-    # 4. Execute ML predictions
-    for target in crypto_targets:
-         logger.info(f"Scanning 24/7 Momentum Vector for {target}...")
-         
-         # Dynamically fetch the real live 1-hour return of the crypto to feed the AI
-         try:
-             import yfinance as yf
-             # Convert target like BTC/USD to yahoo format BTC-USD
-             yf_symbol = target.replace("/", "-")
-             data = yf.download(yf_symbol, period="5d", interval="1h", progress=False)['Close']
-             if not data.empty and len(data) >= 2:
-                 try:
-                     live_return = float(data.iloc[-1, 0] - data.iloc[-2, 0]) / float(data.iloc[-2, 0])
-                 except:
-                     live_return = float((data.iloc[-1] - data.iloc[-2]) / data.iloc[-2])
-                 live_volatility = float(data.pct_change().std().iloc[0]) if isinstance(data.pct_change().std(), pd.Series) else float(data.pct_change().std())
-             else:
-                 live_return = 0.05
-                 live_volatility = 0.02
-         except Exception as data_err:
-             logger.warning(f"Failed to fetch live data for {target}: {data_err}")
-             live_return = 0.05
-             live_volatility = 0.02
+        if not API_KEY or not SEC_KEY:
+            logger.critical("Alpaca API keys missing! HFT Crypto requires valid connection.")
+            raise ValueError("ALPACA_API_KEY and ALPACA_SECRET_KEY required.")
+            
+        self.client = TradingClient(API_KEY, SEC_KEY, paper=True)
+        self.stream = CryptoDataStream(API_KEY, SEC_KEY)
+
+    async def _trade_handler(self, data):
+        """Callback fired dynamically generated on every crypto trade tick in milliseconds"""
+        if self.trade_lock or not self.trading_allowed:
+            return
+            
+        sym = data.symbol
+        price = data.price
+        
+        # Micro tick window per symbol
+        self.tick_windows[sym].append(price)
+        if len(self.tick_windows[sym]) > 10:
+             self.tick_windows[sym].pop(0)
              
-         # Synthesized internal stat matching observation space (8D LSTM Target)
-         # Using 0.0 for NLP/Imbalance to create a neutral non-biased execution field for crypto.
-         state_vector = np.array([
-             live_return, 
-             live_volatility, 
-             0.01, 
-             0.0, 
-             1.0, 
-             1.0,
-             0.0, # NLP Sentiment mock
-             1.0  # L2 Imbalance mock
-         ], dtype=np.float32)
-         
-         action, _lstm_states = rl_model.predict(state_vector, deterministic=True)
-         
-         try:
-             if action[0] > 0.03: # Confidence threshold for LONG
-                 logger.info(f"RL Agent Confirmed LONG action ({action[0]:.2f}) for {target}")
-                 
-                 order_req = MarketOrderRequest(
-                     symbol=target,
-                     notional=TRADE_NOTIONAL_USD,  # <-- Crucial: Fractional $ ordering
-                     side=OrderSide.BUY,
-                     time_in_force=TimeInForce.GTC
-                 )
-                 client.submit_order(order_data=order_req)
-                 logger.success(f"Bought ${TRADE_NOTIONAL_USD} fractional {target}.")
-                     
-             elif action[0] < -0.03: # Confidence threshold for SHORT (Bear Signal)
-                 logger.warning(f"RL Agent Confirmed SHORT action ({-action[0]:.2f}) for {target}")
-                 
-                 # Alpaca Crypto Shorting (Requires margin/specific approval)
-                 order_req = MarketOrderRequest(
-                     symbol=target,
-                     notional=TRADE_NOTIONAL_USD, 
-                     side=OrderSide.SELL,
-                     time_in_force=TimeInForce.GTC
-                 )
-                 client.submit_order(order_data=order_req)
-                 logger.success(f"Shorted ${TRADE_NOTIONAL_USD} fractional {target}.")
-                     
-             else:
-                 logger.info(f"RL Agent recommends HOLD/WAIT for {target}.")
-                 
-         except Exception as alp_e:
-             logger.error(f"Failed to place live crypto order for {target}: {alp_e}")
+             tick_array = np.array(self.tick_windows[sym], dtype=np.float32)
+             price_delta = calculate_nano_momentum_c(tick_array)
+             
+             # Calculate momentum percentage instead of absolute dollars due to different coin values
+             momentum_pct = price_delta / price
+             
+             # HFT Strategy: Nano-Momentum Burst threshold (0.1% sudden spike)
+             if momentum_pct > 0.001: 
+                 logger.success(f"⚡ [CRYPTO HFT]: Massive Burst (+{momentum_pct*100:.3f}%) in {sym}. FIRE LONG SCALP!")
+                 await self._execute_scalp("BUY", sym)
+                 self.tick_windows[sym].clear()
+                  
+             elif momentum_pct < -0.001:
+                 logger.error(f"⚡ [CRYPTO HFT]: Plunge (-{abs(momentum_pct*100):.3f}%) in {sym}. FIRE SHORT SCALP!")
+                 await self._execute_scalp("SELL", sym)
+                 self.tick_windows[sym].clear()
 
-    logger.info("--- Crypto Serverless Trade Cycle Completed ---")
+    async def _execute_scalp(self, direction: str, symbol: str):
+        self.trade_lock = True
+        try:
+             order = MarketOrderRequest(
+                 symbol=symbol,
+                 notional=100.0,  # Strict $100 Fractional sizing
+                 side=OrderSide.BUY if direction == "BUY" else OrderSide.SELL,
+                 time_in_force=TimeInForce.GTC
+             )
+             self.client.submit_order(order_data=order)
+             logger.success(f"HFT Crypto SUCCESS: {direction} $100 of {symbol}")
+             
+             # Target Evaluation
+             account = self.client.get_account()
+             daily_pnl = float(account.equity) - float(account.last_equity)
+             logger.info(f"📊 CRYPTO PNL UPDATE: Today's Profit is ${daily_pnl:.2f}")
+             
+             if daily_pnl >= self.daily_target_usd:
+                 logger.success(f"🎯 INSTITUTIONAL CAP REACHED: Profit (+${daily_pnl:.2f}) cap hit. Crypto HFT shutting down till tomorrow.")
+                 self.trading_allowed = False
+             elif daily_pnl <= self.daily_loss_limit_usd:
+                 logger.critical(f"🛑 RISK LIMIT REACHED: Loss (-${abs(daily_pnl):.2f}) cap hit. Crypto HFT halted.")
+                 self.trading_allowed = False
+                 
+        except Exception as e:
+             logger.error(f"Crypto HFT Execution failed: {e}")
+        finally:
+             await asyncio.sleep(2)
+             self.trade_lock = False
+
+    def run_engine(self):
+        logger.info(f"🚀 Igniting Crypto Millisecond WebSockets for: {self.symbols}")
+        for sym in self.symbols:
+            self.stream.subscribe_trades(self._trade_handler, sym)
+            
+        try:
+            self.stream.run()
+        except KeyboardInterrupt:
+            logger.info("Crypto HFT Engine Halted manually.")
+        except Exception as e:
+            logger.error(f"Crypto HFT Stream Crash: {e}")
 
 if __name__ == "__main__":
-    import time
-    logger.info("Initializing 24/7 Crypto PPO Pipeline (5-Minute Loop)...")
-    while True:
-        try:
-            run_crypto_cycle()
-        except Exception as e:
-            logger.error(f"Crypto cycle crashed: {e}")
-        time.sleep(300) # Wait 5 minutes before next AI scan
+    targets = ["BTC/USD", "ETH/USD", "SOL/USD"]
+    bot = CryptoLowLatencyHFT(targets)
+    bot.run_engine()
