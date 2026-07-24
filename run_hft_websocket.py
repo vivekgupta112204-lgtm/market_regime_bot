@@ -105,21 +105,21 @@ class UltraLowLatencyHFT:
                  a_arr = np.array(self.recent_ask_sizes, dtype=np.float32)
                  imbalance = calculate_l2_imbalance_c(b_arr, a_arr)
              
-             # HFT Strategy: Nano-Momentum Burst + Level 2 Support Validation
-             if price_delta > 0.05: # Price jumped 5 cents instantly
-                 if imbalance > 2.0: # AND Bids limit volume > 2x Ask volume (Institutional support wall)
-                     logger.success(f"⚡ [HFT TRIGGER]: L2 Imbalance ({imbalance:.1f}x) CONFIRMS Burst (+${price_delta:.2f}). FIRE LONG SCALP!")
+             # HFT Strategy: Nano-Momentum Burst + Level 2 Support Validation (HIGH ACCURACY MODE)
+             if price_delta > 0.10: # Price jumped 10 cents instantly (High Confirmation)
+                 if imbalance > 4.0: # Bids limit volume > 4x Ask volume (Massive Institutional support wall)
+                     logger.success(f"⚡ [HFT A++ TRIGGER]: Extreme L2 Imbalance ({imbalance:.1f}x) CONFIRMS Burst (+${price_delta:.2f}). FIRE LONG SCALP!")
                      await self._execute_scalp("BUY")
                  else:
-                     logger.warning(f"⚠️ [HFT TRAP AVOIDED]: Price jumped (+${price_delta:.2f}) but L2 Book is empty (Imbalance: {imbalance:.1f}x). Ignoring Fake-out.")
+                     logger.warning(f"⚠️ [HFT FILTERED]: Price jumped (+${price_delta:.2f}) but L2 Book is weak (Imbalance: {imbalance:.1f}x). Ignoring to maintain high win-rate.")
                      self.tick_window.clear()
                   
-             elif price_delta < -0.05:
-                 if imbalance < 0.5: # Ask limit volume > 2x Bid volume (Wall of sellers)
-                     logger.error(f"⚡ [HFT TRIGGER]: L2 Imbalance ({imbalance:.1f}x) CONFIRMS Plunge (-${abs(price_delta):.2f}). FIRE SHORT SCALP!")
+             elif price_delta < -0.10: # Price plunged 10 cents
+                 if imbalance < 0.25: # Ask limit volume > 4x Bid volume (Massive sell wall)
+                     logger.error(f"⚡ [HFT A++ TRIGGER]: Extreme L2 Imbalance ({imbalance:.1f}x) CONFIRMS Plunge (-${abs(price_delta):.2f}). FIRE SHORT SCALP!")
                      await self._execute_scalp("SELL")
                  else:
-                     logger.warning(f"⚠️ [HFT TRAP AVOIDED]: Price dropped (-${abs(price_delta):.2f}) but no Sellers in L2 Book. Ignoring Fake bear trap.")
+                     logger.warning(f"⚠️ [HFT FILTERED]: Price dropped (-${abs(price_delta):.2f}) but Sellers are weak in L2. Ignoring to protect accuracy.")
                      self.tick_window.clear()
 
     async def _execute_scalp(self, direction: str):

@@ -65,14 +65,14 @@ class CryptoLowLatencyHFT:
              # Calculate momentum percentage instead of absolute dollars due to different coin values
              momentum_pct = price_delta / price
              
-             # HFT Strategy: Nano-Momentum Burst threshold (0.1% sudden spike)
-             if momentum_pct > 0.001: 
-                 logger.success(f"⚡ [CRYPTO HFT]: Massive Burst (+{momentum_pct*100:.3f}%) in {sym}. FIRE LONG SCALP!")
+             # HFT Strategy: Nano-Momentum Burst threshold (0.2% sudden spike) A++ Setups only
+             if momentum_pct > 0.002: 
+                 logger.success(f"⚡ [CRYPTO A++ TRIGGER]: Massive Burst (+{momentum_pct*100:.3f}%) in {sym}. FIRE LONG SCALP!")
                  await self._execute_scalp("BUY", sym)
                  self.tick_windows[sym].clear()
                   
-             elif momentum_pct < -0.001:
-                 logger.error(f"⚡ [CRYPTO HFT]: Plunge (-{abs(momentum_pct*100):.3f}%) in {sym}. FIRE SHORT SCALP!")
+             elif momentum_pct < -0.002:
+                 logger.error(f"⚡ [CRYPTO A++ TRIGGER]: Plunge (-{abs(momentum_pct*100):.3f}%) in {sym}. FIRE SHORT SCALP!")
                  await self._execute_scalp("SELL", sym)
                  self.tick_windows[sym].clear()
 
