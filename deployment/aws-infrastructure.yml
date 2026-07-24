@@ -7,11 +7,6 @@ Parameters:
     Type: String
     Default: t3.micro
     AllowedValues: [t2.micro, t3.micro, t3.small, t3.medium]
-  
-  KeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access
-    Type: AWS::EC2::KeyPair::KeyName
-    Default: "" # Leave empty if you don't have one, we will use Session Manager
 
 Resources:
   TradingBotRole:
@@ -92,7 +87,7 @@ Resources:
           [Service]
           User=root
           WorkingDirectory=/opt/trading_bot
-          ExecStart=/opt/trading_bot/venv/bin/python run_bot.py
+          ExecStart=/opt/trading_bot/venv/bin/python run_hft_websocket.py
           Restart=always
           RestartSec=10
           Environment=PYTHONBUFFERED=1
@@ -101,9 +96,29 @@ Resources:
           WantedBy=multi-user.target
           EOF
           
-          # Reload and start bot
+          cat << 'EOF' > /etc/systemd/system/cryptobot.service
+          [Unit]
+          Description=Crypto 24/7 AI Trading Engine
+          After=network.target
+
+          [Service]
+          User=root
+          WorkingDirectory=/opt/trading_bot
+          ExecStart=/opt/trading_bot/venv/bin/python run_crypto.py
+          Restart=always
+          RestartSec=15
+          Environment=PYTHONBUFFERED=1
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          # Reload and start both bots
           systemctl daemon-reload
           systemctl enable tradingbot.service
+          systemctl enable cryptobot.service
+          systemctl start tradingbot.service || true
+          systemctl start cryptobot.service || true
           # (Bot will intentionally fail until user adds API keys to .env)
 
 Outputs:

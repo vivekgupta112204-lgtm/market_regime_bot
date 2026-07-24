@@ -133,4 +133,11 @@ def run_crypto_cycle():
     logger.info("--- Crypto Serverless Trade Cycle Completed ---")
 
 if __name__ == "__main__":
-    run_crypto_cycle()
+    import time
+    logger.info("Initializing 24/7 Crypto PPO Pipeline (5-Minute Loop)...")
+    while True:
+        try:
+            run_crypto_cycle()
+        except Exception as e:
+            logger.error(f"Crypto cycle crashed: {e}")
+        time.sleep(300) # Wait 5 minutes before next AI scan
